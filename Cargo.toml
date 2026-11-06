@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/bridge-core", "crates/bridge-helper", "crates/bridge-tools", "crates/bridge-updates", "src-tauri"]
 
 [workspace.package]
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.9"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/stardely62-oss/discord-bridge"

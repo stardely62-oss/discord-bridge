@@ -323,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-core"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.9"
 dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
@@ -340,7 +340,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-tools"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.9"
 dependencies = [
  "base64 0.22.1",
  "bridge-core",
@@ -352,7 +352,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-updates"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.9"
 dependencies = [
  "base64 0.22.1",
  "bridge-core",
@@ -918,7 +918,7 @@ dependencies = [
 
 [[package]]
 name = "discord-bridge"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.9"
 dependencies = [
  "base64 0.22.1",
  "bridge-core",
@@ -945,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "discord-bridge-helper"
-version = "0.1.0-alpha.10"
+version = "0.1.0-alpha.9"
 dependencies = [
  "base64 0.22.1",
  "bridge-core",
