@@ -17,6 +17,7 @@ pub mod lists;
 pub mod manifest;
 pub mod packs;
 pub mod ports;
+pub mod services;
 pub mod strategy;
 pub mod templates;
 pub mod versions;

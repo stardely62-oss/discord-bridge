@@ -443,3 +443,114 @@ export interface EditorParse {
   line?: number | null;
   column?: number | null;
 }
+
+// ---------------- Service cards (Rust: bridge_core::services) ----------------
+
+/** unknown: no verified source · known: in a verified source · prepared: the selected strategy has rules · applied: the running engine uses exactly this configuration. Never "works": that needs a real check. */
+export type ApplyState = "unknown" | "known" | "prepared" | "applied";
+export type CardKind = "flowseal" | "installed" | "available";
+export type ListKind = "hostlist" | "hostlistExclude" | "ipset" | "ipsetExclude" | "ipsetSource" | "other";
+
+export interface CardSummary {
+  id: string;
+  kind: CardKind;
+  domains: number;
+  inFlowseal: number;
+  excluded: number;
+  shared: number;
+  ips: number;
+  rules: number;
+  extraRules: number;
+  state: ApplyState;
+}
+
+export interface SourceFile {
+  name: string;
+  kind: ListKind;
+  present: boolean;
+  lines: number;
+  entries: number;
+}
+
+export interface ServicesOverview {
+  bundleVersion?: string | null;
+  sources: SourceFile[];
+  errors: string[];
+  cards: CardSummary[];
+}
+
+export interface LineRef {
+  list: string;
+  line: number;
+  raw: string;
+  parent: boolean;
+}
+
+export interface DomainInfo {
+  domain: string;
+  group: string;
+  sources: LineRef[];
+  excludedBy: LineRef[];
+  sharedWith: string[];
+}
+
+export interface RuleInfo {
+  index: number;
+  label?: string | null;
+  enabled: boolean;
+  tcp?: string | null;
+  udp?: string | null;
+  hostlists: string[];
+  hostlistDomains: string[];
+  hostlistExcludes: string[];
+  ipsets: string[];
+  ipsetExcludes: string[];
+  l7: string[];
+  desync?: string | null;
+}
+
+export interface StrategyFacts {
+  id: string;
+  name: string;
+  wfTcp?: string | null;
+  wfUdp?: string | null;
+  rules: RuleInfo[];
+}
+
+export type RuleMatch = { by: "hostlist"; value: string } | { by: "domains"; value: string[] } | { by: "protocol"; value: string[] };
+
+export interface CardRule {
+  index: number;
+  matched: RuleMatch;
+}
+
+export interface IpsetFacts {
+  mode: IpsetMode;
+  runtimeEntries?: number | null;
+  runtimePlaceholder: boolean;
+  runtimeAll: boolean;
+  sourceEntries?: number | null;
+  rules: number[];
+}
+
+export interface CardDetails {
+  summary: CardSummary;
+  domains: DomainInfo[];
+  serviceIps: string[];
+  rules: CardRule[];
+  strategy?: StrategyFacts | null;
+  ipset: IpsetFacts;
+  sources: SourceFile[];
+  bundleVersion?: string | null;
+  runningStrategy?: string | null;
+  pendingApply: boolean;
+}
+
+export interface ListPage {
+  name: string;
+  total: number;
+  matched: number;
+  offset: number;
+  /** [1-based line number, original line] */
+  lines: [number, string][];
+}

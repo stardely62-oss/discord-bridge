@@ -7,6 +7,7 @@ mod diagnostics;
 mod discord;
 mod platform;
 mod privileges;
+mod services;
 mod state;
 mod strategies;
 mod zapret;
@@ -71,6 +72,7 @@ pub fn run() {
                 resource_dir,
                 quitting: Default::default(),
                 catalog: catalog_sync::CatalogRuntime::production(data_dir.join("catalog")),
+                list_cache: Mutex::new(None),
             };
             app.manage(state);
             platform::tray::create(&handle)?;
@@ -241,6 +243,10 @@ pub fn run() {
             catalog_sync::pack_remove,
             catalog_sync::pack_rollback,
             catalog_sync::pack_diff,
+            services::services_overview,
+            services::service_details,
+            services::flowseal_list_page,
+            services::flowseal_list_text,
             commands::write_list_file,
             commands::get_option_specs,
             commands::get_resources,

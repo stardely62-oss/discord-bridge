@@ -22,6 +22,9 @@ import type {
   StrategyDiff,
   StrategyListItem,
   UpdateInfo,
+  ServicesOverview,
+  CardDetails,
+  ListPage,
 } from "./types";
 
 export const api = {
@@ -58,6 +61,13 @@ export const api = {
   packRemove: (id: string) => invoke<CatalogView>("pack_remove", { id }),
   packRollback: (id: string) => invoke<CatalogView>("pack_rollback", { id }),
   packDiff: (id: string) => invoke<PackDiff>("pack_diff", { id }),
+  /** Service cards: catalog facts + the original Flowseal lists + the running configuration. */
+  servicesOverview: () => invoke<ServicesOverview>("services_overview"),
+  serviceDetails: (id: string) => invoke<CardDetails>("service_details", { id }),
+  /** A searchable page of an original Flowseal file of the active version. */
+  flowsealListPage: (name: string, query: string, offset: number, limit: number) => invoke<ListPage>("flowseal_list_page", { name, query, offset, limit }),
+  /** The whole original file, unchanged (for copying). */
+  flowsealListText: (name: string) => invoke<string>("flowseal_list_text", { name }),
   readListFile: (path: string) => invoke<string[]>("read_list_file", { path }),
   writeListFile: (path: string, entries: string[]) => invoke<void>("write_list_file", { path, entries }),
   optionSpecs: () => invoke<OptionSpec[]>("get_option_specs"),

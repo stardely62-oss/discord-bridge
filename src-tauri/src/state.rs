@@ -73,6 +73,8 @@ pub struct AppState {
     pub quitting: AtomicBool,
     /// Verified remote catalog of address packs (see `catalog_sync`).
     pub catalog: crate::catalog_sync::CatalogRuntime,
+    /// Verified original list files of the active Flowseal version.
+    pub list_cache: Mutex<Option<crate::services::ListCache>>,
 }
 
 pub const HISTORY_LIMIT: usize = 20;

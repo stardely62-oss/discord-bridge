@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api, errorText } from "../services/api";
-import type { ActivationResult, AutoProgress, CatalogView, LaunchResult, Overview, StrategyListItem } from "../services/types";
+import type { ActivationResult, AutoProgress, CatalogView, LaunchResult, Overview, ServicesOverview, StrategyListItem } from "../services/types";
 
 export type Page = "home" | "strategies" | "lists" | "diagnostics" | "settings" | "about";
 
@@ -23,6 +23,9 @@ interface AppStore {
   auto: AutoProgress | null;
   launchFailure: LaunchResult | null;
   catalog: CatalogView | null;
+  /** Service cards (counts, apply state) — refreshed with the catalog and the engine state. */
+  services: ServicesOverview | null;
+  loadServices: () => Promise<void>;
   setCatalog: (c: CatalogView) => void;
   loadCatalog: () => Promise<void>;
   setLaunchFailure: (r: LaunchResult | null) => void;
@@ -53,6 +56,14 @@ export const useApp = create<AppStore>((set, get) => ({
   auto: null,
   launchFailure: null,
   catalog: null,
+  services: null,
+  loadServices: async () => {
+    try {
+      set({ services: await api.servicesOverview() });
+    } catch {
+      // The cards still show the catalog data; details report their own errors.
+    }
+  },
   setCatalog: (catalog) => set({ catalog }),
   loadCatalog: async () => {
     try {

@@ -54,7 +54,7 @@ pub struct Overview {
 
 /// True if the running engine's snapshot hash differs from the hash of the
 /// same strategy with the current settings (both use `config_hash`).
-fn pending_apply(state: &AppState, engine: Option<&EngineStatus>) -> bool {
+pub(crate) fn pending_apply(state: &AppState, engine: Option<&EngineStatus>) -> bool {
     let Some(e) = engine.filter(|e| e.state == EngineState::Running) else {
         return false;
     };
