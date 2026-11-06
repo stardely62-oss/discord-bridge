@@ -22,13 +22,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-pub const FLOWSEAL_REPO: &str = "Flowseal/zapret-discord-youtube";
-pub const APP_REPO: &str = "stardely62-oss/discord-bridge";
-/// Where signed Flowseal manifests are published. It must be readable
-/// anonymously; while the repository is private, updates are reported as
-/// unavailable instead of pretending to work.
-pub const MANIFEST_BASE: &str =
-    "https://github.com/stardely62-oss/discord-bridge/releases/download";
+use bridge_core::updates::MANIFEST_BASE;
 
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -578,146 +572,6 @@ pub async fn auto_select(app: AppHandle, state: &AppState) -> AutoProgress {
     p
 }
 
-#[derive(Debug, Clone, Serialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateInfo {
-    pub current: Option<String>,
-    pub latest: Option<String>,
-    pub newer: bool,
-    pub changelog: Option<String>,
-    pub url: Option<String>,
-    pub error: Option<String>,
-    /// A signed manifest for the latest version is downloadable.
-    pub installable: bool,
-    /// Why installation is not possible (shown instead of a dead button).
-    pub unavailable_reason: Option<String>,
-}
-
-#[derive(serde::Deserialize)]
-struct GhRelease {
-    tag_name: String,
-    body: Option<String>,
-    html_url: String,
-    #[serde(default)]
-    draft: bool,
-}
-
-async fn gh_get(state: &AppState, url: &str) -> Result<reqwest::Response, String> {
-    let r = state
-        .http
-        .get(url)
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await
-        .map_err(|e| format!("GitHub недоступен: {e}"))?;
-    if r.status().as_u16() == 404 {
-        return Err(
-            "не найдено (репозиторий приватный или релиза нет) — анонимная проверка невозможна"
-                .into(),
-        );
-    }
-    if !r.status().is_success() {
-        return Err(format!("GitHub ответил {}", r.status()));
-    }
-    Ok(r)
-}
-
-fn manifest_url(version: &str) -> String {
-    format!("{MANIFEST_BASE}/flowseal-{version}/flowseal-{version}.signed.json")
-}
-
-pub async fn check_flowseal_update(state: &AppState) -> UpdateInfo {
-    let current = state.bundle.lock().expect("lock").version.clone();
-    let mut info = UpdateInfo {
-        current: current.clone(),
-        ..Default::default()
-    };
-    let r = match gh_get(
-        state,
-        &format!("https://api.github.com/repos/{FLOWSEAL_REPO}/releases/latest"),
-    )
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            info.error = Some(e);
-            return info;
-        }
-    };
-    match r.json::<GhRelease>().await {
-        Ok(rel) => {
-            let latest = rel.tag_name.trim_start_matches('v').to_string();
-            info.newer = match current.as_deref() {
-                None => true,
-                Some(c) => versions::flowseal_cmp(&latest, c) == Ok(CmpOrdering::Greater),
-            };
-            info.changelog = rel.body.map(|b| b.chars().take(8000).collect());
-            info.url = Some(rel.html_url);
-            if info.newer {
-                let ok = state
-                    .http
-                    .head(manifest_url(&latest))
-                    .send()
-                    .await
-                    .map(|r| r.status().is_success())
-                    .unwrap_or(false);
-                info.installable = ok;
-                if !ok {
-                    info.unavailable_reason = Some(
-                        "подписанный манифест для этой версии недоступен анонимно: он ещё не опубликован или канал обновлений (релизы Discord Bridge) приватный".into(),
-                    );
-                }
-            }
-            info.latest = Some(latest);
-        }
-        Err(e) => info.error = Some(e.to_string()),
-    }
-    info
-}
-
-pub async fn check_app_update(state: &AppState) -> UpdateInfo {
-    let current = env!("CARGO_PKG_VERSION");
-    let mut info = UpdateInfo {
-        current: Some(current.into()),
-        ..Default::default()
-    };
-    let r = match gh_get(
-        state,
-        &format!("https://api.github.com/repos/{APP_REPO}/releases?per_page=30"),
-    )
-    .await
-    {
-        Ok(r) => r,
-        Err(e) => {
-            info.error = Some(e);
-            return info;
-        }
-    };
-    let list: Vec<GhRelease> = match r.json().await {
-        Ok(l) => l,
-        Err(e) => {
-            info.error = Some(e.to_string());
-            return info;
-        }
-    };
-    // Highest SemVer among app releases (tags v*), not "first in list".
-    let best = list
-        .into_iter()
-        .filter(|x| !x.draft && x.tag_name.starts_with('v'))
-        .filter_map(|x| versions::app_version(&x.tag_name).ok().map(|v| (v, x)))
-        .max_by(|a, b| a.0.cmp(&b.0));
-    match best {
-        Some((v, rel)) => {
-            info.newer = versions::app_cmp(&v.to_string(), current) == Ok(CmpOrdering::Greater);
-            info.changelog = rel.body.map(|b| b.chars().take(8000).collect());
-            info.url = Some(rel.html_url);
-            info.latest = Some(v.to_string());
-        }
-        None => info.error = Some("релизы приложения не найдены".into()),
-    }
-    info
-}
-
 /// Download the signed manifest, the official archive, verify both, store the
 /// archive in a temporary file and let the helper read it (impersonating us)
 /// and verify again before installing. The active version does not change.
@@ -732,7 +586,7 @@ pub async fn install_flowseal(state: &AppState, version: &str) -> Result<(), Str
     }
     let signed: SignedManifest = state
         .http
-        .get(manifest_url(version))
+        .get(bridge_core::updates::manifest_url(MANIFEST_BASE, version))
         .send()
         .await
         .map_err(|e| e.to_string())?
@@ -838,63 +692,118 @@ pub fn compat_report(state: &AppState, version: &str) -> Result<Vec<CompatEntry>
         .collect())
 }
 
+/// Outcome of installing or switching Flowseal, for the Updates page.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlowsealAction {
+    pub ok: bool,
+    /// `activated` — the version is active (and the running strategy works on it);
+    /// `rolledBack` — it did not start, the previous version is active again;
+    /// `rollbackFailed` — it did not start and returning failed;
+    /// `refused` — nothing was changed (Auto running, strategy missing…);
+    /// `installFailed` — download/verification/installation failed, nothing changed.
+    pub outcome: String,
+    pub message: String,
+    pub version: String,
+}
+
+impl FlowsealAction {
+    fn new(ok: bool, outcome: &str, version: &str, message: impl Into<String>) -> Self {
+        FlowsealAction {
+            ok,
+            outcome: outcome.into(),
+            message: message.into(),
+            version: version.into(),
+        }
+    }
+}
+
 /// Switch Flowseal to `version` as a transaction: activate, restart the running
 /// strategy on it, and if that fails, return to the previous version and
 /// configuration.
-pub async fn switch_bundle(
-    app: &AppHandle,
-    state: &AppState,
-    version: &str,
-) -> Result<String, String> {
-    ensure_not_auto(state)?;
+pub async fn switch_bundle(app: &AppHandle, state: &AppState, version: &str) -> FlowsealAction {
+    let refused = |m: String| FlowsealAction::new(false, "refused", version, m);
+    if let Err(e) = ensure_not_auto(state) {
+        return refused(e);
+    }
     let prev = state.bundle.lock().expect("lock").version.clone();
     let running = engine_status(state)
         .await
         .ok()
         .filter(|s| s.state == EngineState::Running)
         .and_then(|s| s.strategy_id);
-    set_active_bundle(state, version).await?;
+    if let Err(e) = set_active_bundle(state, version).await {
+        return refused(format!("Flowseal {version} не активирован: {e}"));
+    }
     load_bundle(state).await;
     let Some(id) = running else {
         let _ = app.emit("strategies-changed", ());
-        return Ok(format!("активирован Flowseal {version}"));
+        return FlowsealAction::new(
+            true,
+            "activated",
+            version,
+            format!("активирован Flowseal {version}"),
+        );
     };
     if state.strategies.lock().expect("lock").get(&id).is_none() {
         if let Some(p) = &prev {
-            set_active_bundle(state, p).await?;
+            if let Err(e) = set_active_bundle(state, p).await {
+                load_bundle(state).await;
+                return FlowsealAction::new(
+                    false,
+                    "rollbackFailed",
+                    version,
+                    format!("стратегии «{id}» нет в Flowseal {version}; вернуть версию {p} не удалось: {e}"),
+                );
+            }
             load_bundle(state).await;
         }
-        return Err(format!(
+        return refused(format!(
             "стратегии «{id}» нет в Flowseal {version} — версия не переключена"
         ));
     }
     let r = activate(app, state, &id, false, true).await;
     if r.ok {
         let _ = app.emit("strategies-changed", ());
-        return Ok(format!(
-            "Flowseal {version} активирован, стратегия «{id}» работает"
-        ));
+        return FlowsealAction::new(
+            true,
+            "activated",
+            version,
+            format!("Flowseal {version} активирован, стратегия «{id}» работает"),
+        );
     }
     // New version failed: the helper already restored the previous engine
     // snapshot (old files, old lists). Point the active version back too.
     if let Some(p) = &prev {
         if let Err(e) = set_active_bundle(state, p).await {
-            return Err(format!(
-                "Flowseal {version} не запустился ({}); вернуть версию {p} не удалось: {e}",
-                r.message.unwrap_or_default()
-            ));
+            load_bundle(state).await;
+            let _ = app.emit("strategies-changed", ());
+            return FlowsealAction::new(
+                false,
+                "rollbackFailed",
+                version,
+                format!(
+                    "Flowseal {version} не запустился ({}); вернуть версию {p} не удалось: {e}",
+                    r.message.unwrap_or_default()
+                ),
+            );
         }
         load_bundle(state).await;
     }
     let _ = app.emit("strategies-changed", ());
-    Err(format!(
-        "Flowseal {version} не запустился: {}. Возвращена версия {}{}",
-        r.message.unwrap_or_default(),
-        prev.unwrap_or_default(),
-        if r.outcome == "rolledBack" {
-            ", прежняя конфигурация работает"
-        } else {
-            ""
-        }
-    ))
+    FlowsealAction::new(
+        false,
+        "rolledBack",
+        version,
+        format!(
+            "Flowseal {version} не запустился: {}. Возвращена версия {}{}",
+            r.message.unwrap_or_default(),
+            prev.unwrap_or_default(),
+            if r.outcome == "rolledBack" {
+                ", прежняя конфигурация работает"
+            } else {
+                ""
+            }
+        ),
+    )
 }

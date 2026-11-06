@@ -1,8 +1,9 @@
 import { create } from "zustand";
 import { api, errorText } from "../services/api";
-import type { ActivationResult, AutoProgress, CatalogView, LaunchResult, Overview, StrategyListItem } from "../services/types";
+import type { ActivationResult, AutoProgress, CatalogView, LaunchResult, Overview, StrategyListItem, UpdatesView } from "../services/types";
 
 export type Page = "home" | "strategies" | "lists" | "diagnostics" | "settings" | "about";
+export type SettingsTab = "general" | "bypass" | "updates";
 
 export interface Toast {
   id: number;
@@ -23,6 +24,17 @@ interface AppStore {
   auto: AutoProgress | null;
   launchFailure: LaunchResult | null;
   catalog: CatalogView | null;
+  /** Last update-check results (from Rust; the startup check may run hidden). */
+  updates: UpdatesView | null;
+  setUpdates: (v: UpdatesView) => void;
+  loadUpdates: () => Promise<void>;
+  /** Notice keys already shown and dismissed in this session. */
+  seenNotices: string[];
+  dismissNotice: (key: string) => void;
+  /** A request to open Settings on a tab (consumed by the Settings page). */
+  settingsTab: SettingsTab | null;
+  openSettings: (tab: SettingsTab) => void;
+  clearSettingsTab: () => void;
   setCatalog: (c: CatalogView) => void;
   loadCatalog: () => Promise<void>;
   setLaunchFailure: (r: LaunchResult | null) => void;
@@ -53,6 +65,20 @@ export const useApp = create<AppStore>((set, get) => ({
   auto: null,
   launchFailure: null,
   catalog: null,
+  updates: null,
+  setUpdates: (updates) => set({ updates }),
+  loadUpdates: async () => {
+    try {
+      set({ updates: await api.updatesGet() });
+    } catch {
+      // Not critical: the Updates page can check on demand.
+    }
+  },
+  seenNotices: [],
+  dismissNotice: (key) => set({ seenNotices: get().seenNotices.includes(key) ? get().seenNotices : [...get().seenNotices, key] }),
+  settingsTab: null,
+  openSettings: (settingsTab) => set({ settingsTab, page: "settings" }),
+  clearSettingsTab: () => set({ settingsTab: null }),
   setCatalog: (catalog) => set({ catalog }),
   loadCatalog: async () => {
     try {

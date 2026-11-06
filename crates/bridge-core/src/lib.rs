@@ -19,6 +19,7 @@ pub mod packs;
 pub mod ports;
 pub mod strategy;
 pub mod templates;
+pub mod updates;
 pub mod versions;
 
 pub use strategy::{Arg, ArgValue, Rule, Source, Strategy};
