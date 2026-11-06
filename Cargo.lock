@@ -351,6 +351,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bridge-updates"
+version = "0.1.0-alpha.10"
+dependencies = [
+ "base64 0.22.1",
+ "bridge-core",
+ "ed25519-dalek",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "brotli"
 version = "9.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -909,6 +922,7 @@ version = "0.1.0-alpha.10"
 dependencies = [
  "base64 0.22.1",
  "bridge-core",
+ "bridge-updates",
  "discord-bridge-helper",
  "ed25519-dalek",
  "reqwest 0.12.28",

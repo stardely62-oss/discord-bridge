@@ -73,6 +73,8 @@ pub struct AppState {
     pub quitting: AtomicBool,
     /// Verified remote catalog of address packs (see `catalog_sync`).
     pub catalog: crate::catalog_sync::CatalogRuntime,
+    /// App and Flowseal update checks (see `bridge_updates`).
+    pub updates: bridge_updates::UpdateCenter,
 }
 
 pub const HISTORY_LIMIT: usize = 20;

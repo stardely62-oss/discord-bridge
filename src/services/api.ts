@@ -22,6 +22,8 @@ import type {
   StrategyDiff,
   StrategyListItem,
   UpdateInfo,
+  UpdatesView,
+  FlowsealAction,
 } from "./types";
 
 export const api = {
@@ -83,10 +85,12 @@ export const api = {
   saveSettings: (settings: Settings) => invoke<Settings>("save_settings", { settings }),
 
   flowsealCheck: () => invoke<UpdateInfo>("flowseal_check_update"),
-  flowsealInstall: (version: string) => invoke<string>("flowseal_install", { version }),
-  flowsealSetActive: (version: string) => invoke<string>("flowseal_set_active", { version }),
+  flowsealInstall: (version: string) => invoke<FlowsealAction>("flowseal_install", { version }),
+  flowsealSetActive: (version: string) => invoke<FlowsealAction>("flowseal_set_active", { version }),
   flowsealCompat: (version: string) => invoke<CompatEntry[]>("flowseal_compat", { version }),
   appCheckUpdate: () => invoke<UpdateInfo>("app_check_update"),
+  /** Last results of both checks (the startup check may have run while hidden). */
+  updatesGet: () => invoke<UpdatesView>("updates_get"),
   bundle: () => invoke<BundleState>("get_bundle"),
   quit: () => invoke<void>("quit_app"),
 };

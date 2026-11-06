@@ -544,6 +544,35 @@ async fn catalog_sync_never_changes_settings_or_manual_lists() {
     assert_eq!(s.user_lists.ipset_include, vec!["9.9.9.0/24"]);
 }
 
+/// A pack installed from the built-in snapshot (e.g. Telegram in alpha.10)
+/// and later removed from the published catalog stays installed: it is shown
+/// as an orphan ("not in the catalog"), keeps its addresses in the engine
+/// lists and is removed only by the user.
+#[tokio::test]
+async fn a_pack_removed_from_the_catalog_stays_installed_as_an_orphan() {
+    let (d, routes, rt, k) = setup().await;
+    let cfg = config(d.path());
+    let v = rt.view(&[]);
+    assert_eq!(v.origin, CatalogOrigin::Builtin);
+    let tg = v
+        .packs
+        .iter()
+        .find(|p| p.pack.id == "telegram")
+        .expect("the alpha.10 built-in snapshot still lists Telegram");
+    install_confirmed_in(&cfg, &rt, &tg.confirm).unwrap();
+    let serial = v.data_serial + 1000;
+    let (s, dd) = publish(&k, &catalog(serial, 1, &["steampowered.com"]));
+    serve(&routes, s, dd, serial);
+    assert_eq!(rt.sync(&http()).await, SyncOutcome::Updated(serial));
+    let inst = stored(&cfg);
+    let after = rt.view(&inst);
+    assert!(after.packs.iter().all(|p| p.pack.id != "telegram"));
+    assert_eq!(after.orphans.len(), 1);
+    assert_eq!(after.orphans[0].id, "telegram");
+    let lists = bridge_core::lists::effective_lists(&Default::default(), &inst);
+    assert!(lists.general.iter().any(|x| x == "telegram.org"));
+}
+
 /// Network check of the REAL published catalog with the production
 /// endpoints and pinned keys (download, signature, data, cache, ETag/304,
 /// anti-rollback against the built-in serial, confirmed install). Needs
@@ -580,15 +609,15 @@ async fn live_published_catalog_syncs_with_production_settings() {
     // A restart (new runtime over the same cache) keeps the remote catalog.
     let again = CatalogRuntime::production(dir.path().join("c"));
     assert_eq!(again.view(&[]).serial, v.serial);
-    // Confirmed install of a real pack.
+    // Confirmed install of a real pack, if the catalog has an installable one
+    // (packs covered by Flowseal lists are shown but not installable).
     let cfg = config(dir.path());
-    let pick = v
-        .packs
-        .iter()
-        .find(|p| p.state == PackState::Available)
-        .unwrap();
-    install_confirmed_in(&cfg, &again, &pick.confirm).unwrap();
-    assert_eq!(stored(&cfg)[0].domains, pick.pack.domains);
+    if let Some(pick) = v.packs.iter().find(|p| p.state == PackState::Available) {
+        install_confirmed_in(&cfg, &again, &pick.confirm).unwrap();
+        assert_eq!(stored(&cfg)[0].domains, pick.pack.domains);
+    }
+    let ids: Vec<&str> = v.packs.iter().map(|p| p.pack.id.as_str()).collect();
+    println!("live catalog packs: {ids:?}");
     println!(
         "live catalog {} ({} packs, {} icons) verified",
         v.serial.unwrap(),

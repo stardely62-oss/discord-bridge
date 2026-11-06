@@ -31,9 +31,9 @@ jobs:
       - name: rustfmt
         run: cargo fmt --all -- --check
       - name: clippy (core, helper, tools)
-        run: cargo clippy -p bridge-core -p discord-bridge-helper -p bridge-tools --all-targets -- -D warnings
+        run: cargo clippy -p bridge-core -p bridge-updates -p discord-bridge-helper -p bridge-tools --all-targets -- -D warnings
       - name: Tests — strategy parser, manager, manifests, IPC
-        run: cargo test -p bridge-core -p discord-bridge-helper -p bridge-tools
+        run: cargo test -p bridge-core -p bridge-updates -p discord-bridge-helper -p bridge-tools
       - name: Pinned Flowseal release builds a valid bundle
         run: |
           url=$(jq -r .url resources/flowseal.lock.json)

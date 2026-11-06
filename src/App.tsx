@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useEffect } from "react";
 import { LaunchDialog } from "./components/layout/LaunchDialog";
 import { Onboarding } from "./components/layout/Onboarding";
-import { Sidebar, Toasts } from "./components/layout/Shell";
+import { Sidebar, Toasts, UpdateNotices } from "./components/layout/Shell";
 import { ActivationDialog } from "./components/strategies/ActivationDialog";
 import { ConfirmHost } from "./components/ui/confirm";
 import ListsPage from "./pages/Lists/ListsPage";
@@ -12,11 +12,11 @@ import DiagnosticsPage from "./pages/Diagnostics/DiagnosticsPage";
 import HomePage from "./pages/Home/HomePage";
 import SettingsPage from "./pages/Settings/SettingsPage";
 import StrategiesPage from "./pages/Strategies/StrategiesPage";
-import type { ActivationResult, AutoProgress } from "./services/types";
+import type { ActivationResult, AutoProgress, UpdatesView } from "./services/types";
 import { Page, useApp } from "./stores/app";
 
 export default function App() {
-  const { page, refresh, refreshStrategies, setPage, setActivation, setAuto, overview, loadCatalog } = useApp();
+  const { page, refresh, refreshStrategies, setPage, setActivation, setAuto, overview, loadCatalog, loadUpdates, setUpdates } = useApp();
   const reduce = useReducedMotion();
   const theme = overview?.settings.theme ?? "system";
 
@@ -36,6 +36,7 @@ export default function App() {
     refresh();
     refreshStrategies();
     loadCatalog();
+    loadUpdates();
     const un: Promise<() => void>[] = [
       listen("catalog-changed", () => loadCatalog()),
       listen("status-changed", () => refresh()),
@@ -49,11 +50,12 @@ export default function App() {
         refresh();
       }),
       listen<AutoProgress>("auto-progress", (e) => setAuto(e.payload)),
+      listen<UpdatesView>("updates-changed", (e) => setUpdates(e.payload)),
     ];
     return () => {
       un.forEach((p) => p.then((f) => f()));
     };
-  }, [refresh, refreshStrategies, setPage, setActivation, setAuto, loadCatalog]);
+  }, [refresh, refreshStrategies, setPage, setActivation, setAuto, loadCatalog, loadUpdates, setUpdates]);
 
   const pages: Record<Page, JSX.Element> = {
     home: <HomePage />,
@@ -86,6 +88,7 @@ export default function App() {
       <LaunchDialog />
       <ConfirmHost />
       <Toasts />
+      <UpdateNotices />
     </div>
   );
 }

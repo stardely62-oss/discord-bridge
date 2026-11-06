@@ -1,13 +1,49 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { Download, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, ExternalLink, FolderOpen, RefreshCw, RotateCcw } from "lucide-react";
 import { ReactNode, useEffect, useState } from "react";
 import { Badge, Button, Card, NumberField, PageHeader, PageSkeleton, Segmented, Select, SettingRow, Switch } from "../../components/ui";
 import { confirmDialog } from "../../components/ui/confirm";
 import { api, errorText } from "../../services/api";
-import type { Settings, TcpInfo, UpdateInfo } from "../../services/types";
-import { useApp, useTr } from "../../stores/app";
+import type { CompatEntry, FlowsealAction, Settings, TcpInfo, UpdateInfo } from "../../services/types";
+import { useApp, useTr, type SettingsTab } from "../../stores/app";
+import { appReleaseTarget, checkState, type CheckState } from "../../updates/notices";
 
-type Tab = "general" | "bypass" | "updates";
+type Tab = SettingsTab;
+
+/** Flowseal install/switch progress on this page. */
+type FsPhase = { kind: "idle" } | { kind: "installing"; version: string } | { kind: "done"; result: FlowsealAction; incompatible: CompatEntry[] };
+
+function StatusBadge({ state }: { state: CheckState }) {
+  const tr = useTr();
+  const m: Record<CheckState, [string, string, "neutral" | "accent" | "ok" | "warn" | "bad"]> = {
+    notChecked: ["Не проверялось", "Not checked", "neutral"],
+    checking: ["Проверяется…", "Checking…", "neutral"],
+    upToDate: ["Обновлений нет", "No updates", "ok"],
+    available: ["Доступна новая версия", "New version available", "accent"],
+    unavailable: ["Обновление пока недоступно", "Update not available yet", "warn"],
+    error: ["Ошибка проверки", "Check failed", "bad"],
+  };
+  const [ru, en, tone] = m[state];
+  return <Badge tone={tone}>{tr(ru, en)}</Badge>;
+}
+
+function Facts({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1.5 py-3 text-xs">
+      {rows.map(([k, v]) => (
+        <div key={k} className="contents">
+          <dt className="text-ink-muted">{k}</dt>
+          <dd className="min-w-0 break-words">{v}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function checkedAt(info: UpdateInfo | null | undefined, lang: string): string {
+  if (!info?.checkedAt) return "";
+  return new Date(info.checkedAt * 1000).toLocaleTimeString(lang === "en" ? "en-GB" : "ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -19,19 +55,27 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function SettingsPage() {
-  const { overview, toast, refresh, setLang } = useApp();
+  const { overview, toast, refresh, setLang, updates, setUpdates, settingsTab, clearSettingsTab, lang } = useApp();
   const tr = useTr();
-  const [tab, setTab] = useState<Tab>("general");
+  const [tab, setTab] = useState<Tab>(settingsTab ?? "general");
   const [s, setS] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
-  const [fsUpdate, setFsUpdate] = useState<UpdateInfo | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [installing, setInstalling] = useState(false);
+  const [checkingApp, setCheckingApp] = useState(false);
+  const [checkingFs, setCheckingFs] = useState(false);
+  const [fsPhase, setFsPhase] = useState<FsPhase>({ kind: "idle" });
   const [tcp, setTcp] = useState<TcpInfo | null>(null);
 
   useEffect(() => {
     api.getSettings().then(setS).catch((e) => toast("error", errorText(e)));
   }, [toast]);
+
+  // "Go to update" from a notice opens this tab.
+  useEffect(() => {
+    if (settingsTab) {
+      setTab(settingsTab);
+      clearSettingsTab();
+    }
+  }, [settingsTab, clearSettingsTab]);
 
   if (!s) return <PageSkeleton rows={4} />;
 
@@ -63,33 +107,66 @@ export default function SettingsPage() {
     }
   };
 
-  const checkFlowseal = async () => {
-    setChecking(true);
+  const appInfo = updates?.app;
+  const fsInfo = updates?.flowseal;
+  const reload = async () => {
     try {
-      setFsUpdate(await api.flowsealCheck());
-    } catch (e) {
-      toast("error", errorText(e));
-    } finally {
-      setChecking(false);
+      setUpdates(await api.updatesGet());
+    } catch {
+      // the check results below are still shown
     }
   };
 
-  const installFlowseal = async () => {
-    if (!fsUpdate?.latest) return;
-    const ok = await confirmDialog({
-      title: tr(`Установить Flowseal ${fsUpdate.latest}?`, `Install Flowseal ${fsUpdate.latest}?`),
-      body: tr("Перед установкой проверяются подпись манифеста и хэши всех файлов. Ваши стратегии не изменятся, а прежнюю версию можно будет вернуть.", "The manifest signature and all file hashes are verified first. Your strategies are not changed and the previous version can be restored."),
-      confirmLabel: tr("Установить", "Install"),
-    });
-    if (!ok) return;
-    setInstalling(true);
+  const checkApp = async () => {
+    setCheckingApp(true);
     try {
-      toast("ok", await api.flowsealInstall(fsUpdate.latest));
-      refresh();
+      await api.appCheckUpdate();
     } catch (e) {
       toast("error", errorText(e));
     } finally {
-      setInstalling(false);
+      await reload();
+      setCheckingApp(false);
+    }
+  };
+
+  const checkFlowseal = async () => {
+    setCheckingFs(true);
+    try {
+      await api.flowsealCheck();
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      await reload();
+      setCheckingFs(false);
+    }
+  };
+
+  const finishAction = async (result: FlowsealAction) => {
+    let incompatible: CompatEntry[] = [];
+    if (result.ok) {
+      incompatible = await api.flowsealCompat(result.version).catch(() => []);
+    }
+    setFsPhase({ kind: "done", result, incompatible });
+    toast(result.ok ? "ok" : "error", result.message);
+    refresh();
+    await reload();
+  };
+
+  const installFlowseal = async () => {
+    const version = fsInfo?.latest;
+    if (!version || !fsInfo?.installable) return;
+    const ok = await confirmDialog({
+      title: tr(`Установить Flowseal ${version}?`, `Install Flowseal ${version}?`),
+      body: tr("Перед установкой проверяются подпись манифеста и хэши всех файлов — в приложении и ещё раз в службе. Ваши стратегии не изменятся, прежняя версия останется установленной, и к ней можно будет вернуться. Если новая версия не запустится, прежняя восстановится автоматически.", "The manifest signature and all file hashes are verified first — in the app and again in the service. Your strategies are not changed; the previous version stays installed and can be restored. If the new version fails to start, the previous one is restored automatically."),
+      confirmLabel: tr("Установить", "Install"),
+    });
+    if (!ok) return;
+    setFsPhase({ kind: "installing", version });
+    try {
+      await finishAction(await api.flowsealInstall(version));
+    } catch (e) {
+      setFsPhase({ kind: "done", result: { ok: false, outcome: "refused", message: errorText(e), version }, incompatible: [] });
+      toast("error", errorText(e));
     }
   };
 
@@ -115,11 +192,12 @@ export default function SettingsPage() {
         });
         if (!ok) return;
       }
-      toast("ok", await api.flowsealSetActive(version));
+      setFsPhase({ kind: "installing", version });
+      await finishAction(await api.flowsealSetActive(version));
     } catch (e) {
+      setFsPhase({ kind: "idle" });
       toast("error", errorText(e));
     }
-    refresh();
   };
 
   const enableTs = async () => {
@@ -380,58 +458,137 @@ export default function SettingsPage() {
       )}
 
       {tab === "updates" && (
-        <Section title={tr("Flowseal — стратегии и движок", "Flowseal — strategies & engine")}>
-          <SettingRow
-            title={tr(`Установлена версия ${overview?.bundle.version ?? "—"}`, `Installed ${overview?.bundle.version ?? "—"}`)}
-            description={tr(`winws ${overview?.bundle.winwsVersion ?? "—"}. Ставятся только версии с подписанным манифестом, файлы берутся с официального GitHub Flowseal.`, `winws ${overview?.bundle.winwsVersion ?? "—"}. Only versions with a signed manifest are installed; files come from the official Flowseal GitHub.`)}
-          >
-            <Button size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={checking} onClick={checkFlowseal}>
-              {tr("Проверить", "Check")}
-            </Button>
-          </SettingRow>
-          {fsUpdate && (
-            <div className="space-y-2 py-3 text-xs">
-              {fsUpdate.error ? (
-                <div className="text-bad">{fsUpdate.error}</div>
-              ) : fsUpdate.newer ? (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Badge tone="accent">{tr(`доступна ${fsUpdate.latest}`, `${fsUpdate.latest} available`)}</Badge>
-                    {fsUpdate.installable ? (
-                      <Button size="sm" variant="primary" icon={<Download className="h-3.5 w-3.5" />} loading={installing} onClick={installFlowseal}>
-                        {tr("Установить", "Install")}
-                      </Button>
-                    ) : (
-                      <span className="text-ink-muted">{fsUpdate.unavailableReason ?? tr("Установка недоступна.", "Installation unavailable.")}</span>
-                    )}
-                  </div>
-                  {fsUpdate.changelog && <pre className="selectable max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-surface-2 p-3 font-sans text-ink-muted">{fsUpdate.changelog}</pre>}
-                </>
-              ) : (
-                <div className="text-ok">{tr(`Установлена последняя версия (${fsUpdate.latest})`, `Up to date (${fsUpdate.latest})`)}</div>
+        <>
+          <Section title={tr("Автоматические проверки", "Automatic checks")}>
+            <SettingRow
+              title={tr("Автоматически проверять обновления при запуске", "Check for updates automatically at startup")}
+              description={tr("Проверять новые версии Discord Bridge и Flowseal при запуске приложения. Загрузка и установка обновлений выполняются только с вашего согласия.", "Check for new Discord Bridge and Flowseal versions when the app starts. Updates are downloaded and installed only with your consent.")}
+            >
+              <Switch label="check-updates-on-start" checked={s.checkUpdatesOnStart} onChange={(v) => set("checkUpdatesOnStart", v)} />
+            </SettingRow>
+          </Section>
+
+          <Section title="Discord Bridge">
+            <Facts
+              rows={[
+                [tr("Установлена", "Installed"), overview?.appVersion ?? "—"],
+                [tr("Последняя обнаруженная", "Latest found"), appInfo?.latest ?? "—"],
+                [
+                  tr("Статус", "Status"),
+                  <span key="s" className="flex flex-wrap items-center gap-2">
+                    <StatusBadge state={checkState(appInfo, checkingApp || !!updates?.checkingApp)} />
+                    {appInfo && <span className="text-ink-faint">{tr(`проверено в ${checkedAt(appInfo, lang)}`, `checked at ${checkedAt(appInfo, lang)}`)}</span>}
+                  </span>,
+                ],
+                ...(appInfo?.error ? ([[tr("Ошибка", "Error"), <span key="e" className="text-bad">{appInfo.error}</span>]] as [string, ReactNode][]) : []),
+              ]}
+            />
+            <div className="flex flex-wrap items-center gap-2 py-3">
+              <Button size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={checkingApp} onClick={checkApp}>
+                {tr("Проверить", "Check")}
+              </Button>
+              {appReleaseTarget(appInfo) && (
+                <Button size="sm" variant="primary" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => api.openExternal(appReleaseTarget(appInfo)!).catch((e) => toast("error", errorText(e)))}>
+                  {tr(`Открыть релиз ${appInfo?.latest}`, `Open release ${appInfo?.latest}`)}
+                </Button>
+              )}
+              <span className="text-xs text-ink-faint">{tr("Установка — вручную, установщиком со страницы релиза.", "Install manually with the installer from the release page.")}</span>
+            </div>
+            {appInfo?.status === "available" && appInfo.changelog && <pre className="selectable mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-surface-2 p-3 font-sans text-xs text-ink-muted">{appInfo.changelog}</pre>}
+          </Section>
+
+          <Section title={tr("Flowseal Zapret — стратегии и движок", "Flowseal Zapret — strategies & engine")}>
+            <Facts
+              rows={[
+                [tr("Активная версия", "Active version"), `${overview?.bundle.version ?? "—"} · winws ${overview?.bundle.winwsVersion ?? "—"}`],
+                [tr("Последняя официальная", "Latest official"), fsInfo?.latest ?? "—"],
+                [
+                  tr("Статус", "Status"),
+                  <span key="s" className="flex flex-wrap items-center gap-2">
+                    <StatusBadge state={checkState(fsInfo, checkingFs || !!updates?.checkingFlowseal)} />
+                    {fsInfo && <span className="text-ink-faint">{tr(`проверено в ${checkedAt(fsInfo, lang)}`, `checked at ${checkedAt(fsInfo, lang)}`)}</span>}
+                  </span>,
+                ],
+                [
+                  tr("Подписанный манифест", "Signed manifest"),
+                  !fsInfo || !fsInfo.newer ? (
+                    <span key="m" className="text-ink-muted">{tr("не требуется — новой версии нет", "not needed — no newer version")}</span>
+                  ) : fsInfo.installable ? (
+                    <span key="m" className="text-ok">{tr("проверен: подпись закреплённым ключом, версия и совместимость с приложением", "verified: pinned-key signature, version and app compatibility")}</span>
+                  ) : fsInfo.status === "error" ? (
+                    <span key="m" className="text-bad">{tr("не удалось проверить", "could not be checked")}</span>
+                  ) : (
+                    <span key="m" className="text-warn">{fsInfo.unavailableReason ?? tr("не опубликован", "not published")}</span>
+                  ),
+                ],
+                ...(fsInfo?.error ? ([[tr("Ошибка", "Error"), <span key="e" className="text-bad">{fsInfo.error}</span>]] as [string, ReactNode][]) : []),
+              ]}
+            />
+            <div className="flex flex-wrap items-center gap-2 py-3">
+              <Button size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={checkingFs} onClick={checkFlowseal}>
+                {tr("Проверить", "Check")}
+              </Button>
+              {fsInfo?.status === "available" && fsInfo.installable && (
+                <Button size="sm" variant="primary" icon={<Download className="h-3.5 w-3.5" />} loading={fsPhase.kind === "installing"} disabled={fsPhase.kind === "installing"} onClick={installFlowseal}>
+                  {tr(`Установить ${fsInfo.latest}`, `Install ${fsInfo.latest}`)}
+                </Button>
+              )}
+              {fsInfo?.newer && fsInfo.latest && (
+                <Button size="sm" variant="ghost" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => api.openExternal(`flowseal-release:${fsInfo.latest}`).catch((e) => toast("error", errorText(e)))}>
+                  {tr("Релиз Flowseal", "Flowseal release")}
+                </Button>
               )}
             </div>
-          )}
-          {(overview?.bundle.bundles.length ?? 0) > 1 && (
+            {fsPhase.kind === "installing" && <div className="py-3 text-xs text-ink-muted">{tr(`Flowseal ${fsPhase.version}: установка выполняется — проверка подписи, загрузка официального архива, проверка хешей, переключение…`, `Flowseal ${fsPhase.version}: installing — signature check, official archive download, hash check, switching…`)}</div>}
+            {fsPhase.kind === "done" && (
+              <div className="space-y-2 py-3 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={fsPhase.result.ok ? "ok" : fsPhase.result.outcome === "rolledBack" || fsPhase.result.outcome === "refused" || fsPhase.result.outcome === "installFailed" ? "warn" : "bad"}>
+                    {fsPhase.result.ok
+                      ? tr("Установка завершена", "Installation complete")
+                      : fsPhase.result.outcome === "rolledBack"
+                        ? tr("Переключение не удалось, предыдущая версия восстановлена", "Switch failed, the previous version was restored")
+                        : fsPhase.result.outcome === "rollbackFailed"
+                          ? tr("Переключение не удалось, прежнюю версию вернуть не удалось", "Switch failed and the previous version could not be restored")
+                          : tr("Ничего не изменено", "Nothing was changed")}
+                  </Badge>
+                </div>
+                <div className="selectable text-ink-muted">{fsPhase.result.message}</div>
+                {fsPhase.incompatible.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-warn">{tr(`С Flowseal ${fsPhase.result.version} не будут работать ваши стратегии (профили не изменены, можно вернуться к прежней версии ниже):`, `These strategies will not work with Flowseal ${fsPhase.result.version} (profiles unchanged; you can go back below):`)}</div>
+                    <ul className="space-y-1">
+                      {fsPhase.incompatible.map((b) => (
+                        <li key={b.id} className="rounded-md bg-surface-2 px-2.5 py-1.5">
+                          <span className="font-medium text-ink">{b.name}</span> — {b.problems[0]}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+            {fsInfo?.newer && fsInfo.changelog && <pre className="selectable mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-surface-2 p-3 font-sans text-xs text-ink-muted">{fsInfo.changelog}</pre>}
             <div className="py-3">
               <div className="label mb-2">{tr("Установленные версии — можно вернуться к прежней", "Installed versions — you can go back")}</div>
-              {overview?.bundle.bundles.map((b) => (
+              {(overview?.bundle.bundles ?? []).map((b) => (
                 <div key={b.version} className="flex items-center justify-between py-1 text-sm">
                   <span className="flex items-center gap-2">
-                    {b.version} {b.builtin && <Badge>{tr("встроенная", "built-in")}</Badge>} {!b.ok && <Badge tone="bad">{tr("повреждена", "damaged")}</Badge>}
+                    {b.version} {b.builtin && <Badge>{tr("встроенная", "built-in")}</Badge>} {!b.ok && <Badge tone="bad">{tr("файлы повреждены", "files damaged")}</Badge>}
                   </span>
                   {b.active ? (
-                    <Badge tone="ok">{tr("используется", "in use")}</Badge>
+                    <Badge tone="ok">{tr("активна", "active")}</Badge>
                   ) : (
-                    <Button size="sm" variant="ghost" disabled={!b.ok} onClick={() => switchVersion(b.version)}>
+                    <Button size="sm" variant="ghost" disabled={!b.ok || fsPhase.kind === "installing"} onClick={() => switchVersion(b.version)}>
                       {tr("Использовать", "Use")}
                     </Button>
                   )}
                 </div>
               ))}
+              {(overview?.bundle.bundles.length ?? 0) <= 1 && <div className="text-xs text-ink-faint">{tr("Других версий пока нет.", "No other versions yet.")}</div>}
             </div>
-          )}
-        </Section>
+          </Section>
+        </>
       )}
     </div>
   );
