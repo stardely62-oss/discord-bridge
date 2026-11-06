@@ -1,6 +1,6 @@
 //! The catalog repository's Node scripts (build.mjs + sign.mjs) produce
 //! files that bridge_core::packs verifies; the built-in snapshot shipped with
-//! the app is valid; pack ids and addresses are those of alpha.8.
+//! the app is the published catalog 1794006227 (four Flowseal service cards).
 
 use bridge_core::packs::{verify_catalog, CatalogData, PackState, CATALOG_TRUSTED_KEYS};
 use std::fs;
@@ -43,34 +43,47 @@ fn the_test_key_is_not_trusted_by_the_app() {
     assert!(r.is_err());
 }
 
+/// The built-in snapshot is the published catalog 1794006227: the four
+/// Flowseal service cards, information only (nothing to install, no IPs).
 #[test]
-fn builtin_catalog_is_valid_and_keeps_alpha8_packs() {
+fn builtin_catalog_has_the_four_flowseal_cards() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../resources/catalog/builtin-catalog.json");
     let d: CatalogData = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
     d.validate(APP).unwrap();
-    let ids: Vec<&str> = d.packs.iter().map(|p| p.id.as_str()).collect();
-    for id in [
-        "discord",
-        "youtube",
-        "telegram",
-        "steam",
-        "riot",
-        "valorant",
-        "epic",
-        "battlenet",
-        "roblox",
-        "twitch",
-    ] {
-        assert!(ids.contains(&id), "{id}");
+    let mut ids: Vec<&str> = d.packs.iter().map(|p| p.id.as_str()).collect();
+    ids.sort();
+    assert_eq!(ids, ["cloudflare", "discord", "google", "youtube"]);
+    for p in &d.packs {
+        assert_eq!(
+            bridge_core::packs::pack_state(p, &[]),
+            PackState::Flowseal,
+            "{}",
+            p.id
+        );
+        assert!(p.ips.is_empty());
     }
-    let tg = d.packs.iter().find(|p| p.id == "telegram").unwrap();
-    assert_eq!(tg.ips.len(), 14);
-    assert!(tg.ips.contains(&"149.154.160.0/20".to_string()));
-    // Flowseal-covered packs keep their special meaning.
-    let yt = d.packs.iter().find(|p| p.id == "youtube").unwrap();
-    assert_eq!(bridge_core::packs::pack_state(yt, &[]), PackState::Flowseal);
-    // A pack installed in alpha.8 (date version, same addresses) is current.
+    let list = |id: &str| {
+        d.packs
+            .iter()
+            .find(|p| p.id == id)
+            .unwrap()
+            .flowseal_list
+            .clone()
+            .unwrap()
+    };
+    assert_eq!(list("discord"), "list-general.txt");
+    assert_eq!(list("cloudflare"), "list-general.txt");
+    assert_eq!(list("youtube"), "list-google.txt");
+    assert_eq!(list("google"), "list-google.txt");
+    // Older apps accept it too (they understand the same schema).
+    d.validate("0.1.0-alpha.10").unwrap();
+}
+
+/// A pack installed in alpha.8 (date version, same addresses) is current.
+#[test]
+fn a_legacy_installed_pack_with_the_same_addresses_is_current() {
+    let d: CatalogData = serde_json::from_slice(&fixture("catalog-data.json")).unwrap();
     let steam = d.packs.iter().find(|p| p.id == "steam").unwrap();
     let legacy = bridge_core::lists::InstalledPack {
         id: "steam".into(),
@@ -94,8 +107,9 @@ fn builtin_snapshot_is_the_published_catalog_signed_with_the_pinned_key() {
     let data = fs::read(dir.join("builtin-catalog.json")).unwrap();
     let v = verify_catalog(&signed, &data, CATALOG_TRUSTED_KEYS, APP).unwrap();
     assert_eq!(v.data.serial, v.manifest.serial);
-    assert_eq!(v.data.packs.len(), 10);
-    assert_eq!(v.data.icons.len(), 10);
+    assert_eq!(v.manifest.serial, 1_794_006_227);
+    assert_eq!(v.data.packs.len(), 4);
+    assert_eq!(v.data.icons.len(), 4);
     // Every pack yields a stable confirmation hash (same rule as the app).
     for p in &v.data.packs {
         assert_eq!(

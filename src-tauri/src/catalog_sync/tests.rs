@@ -329,8 +329,8 @@ fn builtin_catalog_loads() {
     let rt = CatalogRuntime::production(dir.path().join("c"));
     let v = rt.view(&[]);
     assert_eq!(v.origin, CatalogOrigin::Builtin);
-    assert_eq!(v.packs.len(), 10);
-    assert_eq!(v.icons.len(), 10);
+    assert_eq!(v.packs.len(), 4);
+    assert_eq!(v.icons.len(), 4);
 }
 
 // ---------------------------------- confirmed install vs. catalog changes
@@ -474,32 +474,56 @@ async fn failed_settings_write_leaves_installed_packs_unchanged() {
     assert!(stored(&cfg).is_empty(), "in-memory settings unchanged");
 }
 
-#[test]
-fn offline_install_from_the_builtin_catalog_works() {
+/// No network and no cache (first start offline): the built-in snapshot —
+/// the published catalog 1794006227 — is used. Its four Flowseal cards are
+/// information only. Packs the user installed earlier (e.g. from the
+/// alpha.10 snapshot) are kept as orphans and stay in the engine lists.
+#[tokio::test]
+async fn offline_uses_the_builtin_catalog_and_keeps_installed_packs() {
     let dir = tempfile::tempdir().unwrap();
-    let rt = CatalogRuntime::production(dir.path().join("c"));
-    let cfg = config(dir.path());
-    let v = rt.view(&[]);
-    assert_eq!(v.origin, CatalogOrigin::Builtin);
-    let pick = v
-        .packs
-        .iter()
-        .find(|p| p.state == PackState::Available)
-        .expect("an installable built-in pack");
-    assert_eq!(pick.confirm.serial, v.data_serial);
-    install_confirmed_in(&cfg, &rt, &pick.confirm).unwrap();
-    let got = stored(&cfg);
-    assert_eq!(got[0].id, pick.pack.id);
-    assert_eq!(got[0].domains, pick.pack.domains);
-    assert_eq!(
-        rt.view(&got)
-            .packs
-            .iter()
-            .find(|p| p.pack.id == pick.pack.id)
-            .unwrap()
-            .state,
-        PackState::Current
+    let rt = CatalogRuntime::new(
+        dir.path().join("c"),
+        Endpoints {
+            // Nothing listens here: every request fails at once.
+            manifest: "http://127.0.0.1:9/latest/catalog.signed.json".into(),
+            data_base: "http://127.0.0.1:9/dl".into(),
+        },
+        CATALOG_TRUSTED_KEYS,
+        APP,
     );
+    let cfg = config(dir.path());
+    let earlier = vec![
+        InstalledPack {
+            id: "telegram".into(),
+            version: Some("2".into()),
+            domains: vec!["telegram.org".into(), "t.me".into()],
+            ips: vec!["149.154.160.0/20".into()],
+            ..Default::default()
+        },
+        InstalledPack {
+            id: "steam".into(),
+            version: Some("1".into()),
+            domains: vec!["steampowered.com".into()],
+            ..Default::default()
+        },
+    ];
+    save_packs_in(&cfg, |_| Ok(earlier.clone())).unwrap();
+    let outcome = rt.sync(&http()).await;
+    assert!(!matches!(outcome, SyncOutcome::Updated(_)), "{outcome:?}");
+    let inst = stored(&cfg);
+    assert_eq!(inst, earlier, "installed packs are not touched");
+    let v = rt.view(&inst);
+    assert_eq!(v.origin, CatalogOrigin::Builtin);
+    assert_eq!(v.data_serial, 1_794_006_227);
+    let mut ids: Vec<&str> = v.packs.iter().map(|p| p.pack.id.as_str()).collect();
+    ids.sort();
+    assert_eq!(ids, ["cloudflare", "discord", "google", "youtube"]);
+    assert!(v.packs.iter().all(|p| p.state == PackState::Flowseal));
+    let orphans: Vec<&str> = v.orphans.iter().map(|o| o.id.as_str()).collect();
+    assert_eq!(orphans, ["telegram", "steam"]);
+    let lists = bridge_core::lists::effective_lists(&Default::default(), &inst);
+    assert!(lists.general.iter().any(|x| x == "telegram.org"));
+    assert!(lists.ipset_include.iter().any(|x| x == "149.154.160.0/20"));
 }
 
 #[tokio::test]
@@ -544,33 +568,31 @@ async fn catalog_sync_never_changes_settings_or_manual_lists() {
     assert_eq!(s.user_lists.ipset_include, vec!["9.9.9.0/24"]);
 }
 
-/// A pack installed from the built-in snapshot (e.g. Telegram in alpha.10)
-/// and later removed from the published catalog stays installed: it is shown
-/// as an orphan ("not in the catalog"), keeps its addresses in the engine
-/// lists and is removed only by the user.
+/// A pack installed from a catalog and later removed from the published
+/// catalog stays installed: it is shown as an orphan ("not in the catalog"),
+/// keeps its addresses in the engine lists and is removed only by the user.
 #[tokio::test]
 async fn a_pack_removed_from_the_catalog_stays_installed_as_an_orphan() {
     let (d, routes, rt, k) = setup().await;
     let cfg = config(d.path());
-    let v = rt.view(&[]);
-    assert_eq!(v.origin, CatalogOrigin::Builtin);
-    let tg = v
-        .packs
-        .iter()
-        .find(|p| p.pack.id == "telegram")
-        .expect("the alpha.10 built-in snapshot still lists Telegram");
-    install_confirmed_in(&cfg, &rt, &tg.confirm).unwrap();
-    let serial = v.data_serial + 1000;
-    let (s, dd) = publish(&k, &catalog(serial, 1, &["steampowered.com"]));
-    serve(&routes, s, dd, serial);
-    assert_eq!(rt.sync(&http()).await, SyncOutcome::Updated(serial));
+    let base = rt.view(&[]).data_serial;
+    let (s, dd) = publish(&k, &catalog(base + 100, 1, &["steampowered.com"]));
+    serve(&routes, s, dd, base + 100);
+    assert_eq!(rt.sync(&http()).await, SyncOutcome::Updated(base + 100));
+    install_confirmed_in(&cfg, &rt, &steam_confirm(&rt, &[])).unwrap();
+    // The next publication no longer has the pack.
+    let mut next = catalog(base + 200, 1, &["steampowered.com"]);
+    next.packs[0].id = "other".into();
+    let (s, dd) = publish(&k, &next);
+    serve(&routes, s, dd, base + 200);
+    assert_eq!(rt.sync(&http()).await, SyncOutcome::Updated(base + 200));
     let inst = stored(&cfg);
     let after = rt.view(&inst);
-    assert!(after.packs.iter().all(|p| p.pack.id != "telegram"));
+    assert!(after.packs.iter().all(|p| p.pack.id != "steam"));
     assert_eq!(after.orphans.len(), 1);
-    assert_eq!(after.orphans[0].id, "telegram");
+    assert_eq!(after.orphans[0].id, "steam");
     let lists = bridge_core::lists::effective_lists(&Default::default(), &inst);
-    assert!(lists.general.iter().any(|x| x == "telegram.org"));
+    assert!(lists.general.iter().any(|x| x == "steampowered.com"));
 }
 
 /// Network check of the REAL published catalog with the production
