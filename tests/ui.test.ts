@@ -54,18 +54,28 @@ import { filterPacks, ipUse, manualIpState, ownEntries, packIpState, presentCate
 import { MANUAL_LISTS } from "../src/catalog/lists";
 import { strategyKind } from "../src/catalog/strategies";
 import builtin from "../resources/catalog/builtin-catalog.json";
+// Display rules are tested on the ten-pack test catalog (installable packs, IPs);
+// the shipped built-in snapshot is checked separately below.
+import fixture from "../crates/bridge-core/tests/fixtures/catalog/catalog-data.json";
 import type { CatalogPack, CatalogView, IpSetStatus, PackView } from "../src/services/types";
 
-const packs = (builtin as { packs: CatalogPack[] }).packs;
+const packs = (fixture as { packs: CatalogPack[] }).packs;
+// Optional fields (partialCoverage, requires) are absent in the JSON: read it as unknown first.
+const builtinPacks = (builtin as unknown as { packs: CatalogPack[] }).packs;
 const view = (id: string, state: PackView["state"]): PackView => {
   const pack = packs.find((p) => p.id === id)!;
   return { pack, state, confirm: { id, version: pack.version, serial: 1, sha256: "0".repeat(64), installedSha256: null } };
 };
 
 describe("catalog display", () => {
-  it("the built-in catalog keeps the ten alpha.8 packs with real icons", () => {
+  it("the built-in snapshot has the four Flowseal service cards with real icons", () => {
+    expect(builtinPacks.map((p) => p.id).sort()).toEqual(["cloudflare", "discord", "google", "youtube"]);
+    expect(builtinPacks.every((p) => p.icon?.endsWith(".png"))).toBe(true);
+    expect(builtinPacks.every((p) => p.flowsealList && p.ips.length === 0)).toBe(true);
+  });
+
+  it("the test catalog keeps the ten packs the display rules are tested on", () => {
     expect(packs.map((p) => p.id).sort()).toEqual(["battlenet", "discord", "epic", "riot", "roblox", "steam", "telegram", "twitch", "valorant", "youtube"]);
-    expect(packs.every((p) => p.icon?.endsWith(".png"))).toBe(true);
     expect(packs.find((p) => p.id === "telegram")!.ips).toHaveLength(14);
   });
 
