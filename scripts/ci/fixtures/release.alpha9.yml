@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and publish (e.g. v0.1.0-alpha.1)"
+        required: true
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  verify:
+    name: Gate — full CI passed for this commit, versions match the tag
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: Versions match the tag
+        run: |
+          V="${TAG#v}"
+          CARGO=$(grep -m1 '^version = ' Cargo.toml | cut -d'"' -f2)
+          PKG=$(jq -r .version package.json)
+          TAURI=$(jq -r .version src-tauri/tauri.conf.json)
+          echo "tag=$V cargo=$CARGO package=$PKG tauri=$TAURI"
+          [ "$V" = "$CARGO" ] && [ "$V" = "$PKG" ] && [ "$V" = "$TAURI" ] || { echo "::error::version mismatch"; exit 1; }
+          case "$V" in *-*) echo "prerelease";; *) echo "::warning::stable version — make sure it was tested on real Windows";; esac
+      - name: Full CI succeeded for this exact commit
+        run: |
+          SHA=$(git rev-parse HEAD)
+          N=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&status=success" -q '.total_count')
+          echo "successful CI runs for $SHA: $N"
+          [ "${N:-0}" -gt 0 ] || { echo "::error::no successful CI run for $SHA — release refused"; exit 1; }
+
+  release:
+    needs: verify
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pnpm install --frozen-lockfile
+      - name: Fetch and verify Flowseal
+        run: node scripts/fetch-flowseal.mjs
+      - name: Tests
+        run: cargo test -p bridge-core -p discord-bridge-helper -p bridge-tools
+      - name: Build helper service
+        shell: pwsh
+        run: |
+          cargo build --release -p discord-bridge-helper
+          New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
+          Copy-Item target/release/discord-bridge-helper.exe src-tauri/binaries/discord-bridge-helper-x86_64-pc-windows-msvc.exe
+      - name: Release notes
+        id: notes
+        shell: bash
+        run: |
+          FS=$(jq -r .version resources/flowseal.lock.json)
+          WW=$(jq -r .winwsVersion resources/flowseal.lock.json)
+          FSHA=$(jq -r .sha256 resources/flowseal.lock.json)
+          {
+            echo "body<<EOF_NOTES"
+            echo "## Discord Bridge ${TAG}"
+            echo
+            echo "**Техническая alpha-сборка.** Не является подтверждённым решением блокировки."
+            echo
+            echo "| Компонент | Версия |"
+            echo "|---|---|"
+            echo "| Flowseal zapret-discord-youtube | ${FS} (архив SHA-256 \`${FSHA}\`) |"
+            echo "| winws (zapret) | ${WW} |"
+            echo "| WinDivert | 2.x (из релиза Flowseal ${FS}) |"
+            echo "| Сборка | ${GITHUB_SHA} |"
+            echo
+            echo "### Проверено автоматически (CI)"
+            echo "- Тесты ядра: парсер BAT на всех 22 стратегиях Flowseal (точный порядок аргументов), валидация, импорт/экспорт, diff, миграции, подписи манифестов, протокол IPC."
+            echo "- Тесты приложения и службы на Windows, clippy, сборка установщика."
+            echo
+            echo "### НЕ проверено на реальной Windows"
+            echo "- Реальная работа обхода DPI и голосовых каналов на Windows 11 с блокировкой."
+            echo "- Установка/удаление, служба, трей, автозапуск и перезагрузка на реальной системе."
+            echo "- Установщик не подписан цифровой подписью (возможно предупреждение SmartScreen)."
+            echo
+            echo "Сверьте SHA-256 установщика с \`SHA256SUMS.txt\`. Инструкция ручной проверки: docs/manual-testing.md."
+            echo "EOF_NOTES"
+          } >> "$GITHUB_OUTPUT"
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ env.TAG }}
+          releaseName: "Discord Bridge ${{ env.TAG }}"
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: false
+          prerelease: ${{ contains(env.TAG, '-') }}
+          tauriScript: pnpm tauri
+      - name: Icon embedded in the app and in the installer
+        shell: pwsh
+        run: |
+          # The exe resource (also the runtime window/taskbar icon) must be the current icon.ico.
+          python -I scripts/check-exe-icon.py target/release/discord-bridge.exe src-tauri/icons/icon.ico
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $setup = Get-ChildItem target/release/bundle/nsis/*.exe | Select-Object -First 1
+          7z x $setup.FullName "-o$env:RUNNER_TEMP/setup-x" -y | Out-Null
+          $app = Get-ChildItem "$env:RUNNER_TEMP/setup-x" -Recurse -Filter discord-bridge.exe | Select-Object -First 1
+          if (-not $app) { throw "discord-bridge.exe not found inside the installer" }
+          python -I scripts/check-exe-icon.py $app.FullName src-tauri/icons/icon.ico
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -I scripts/check-exe-icon.py $setup.FullName src-tauri/icons/icon.ico --report-only
+      - name: Required artifacts present
+        shell: pwsh
+        run: |
+          $v = "${{ env.TAG }}".TrimStart("v")
+          $exe = Get-ChildItem target/release/bundle/nsis/*.exe | Where-Object { $_.Name -like "*_${v}_x64-setup.exe" }
+          if (-not $exe) { throw "installer for $v not found" }
+          if (-not (Test-Path "resources/flowseal/$(Get-Content resources/flowseal.lock.json | ConvertFrom-Json | Select-Object -ExpandProperty version)/bundle-manifest.json")) { throw "Flowseal bundle missing" }
+          if (-not (Test-Path licenses/WinDivert-LICENSE.txt)) { throw "licenses missing" }
+      - name: Checksums
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $files = Get-ChildItem target/release/bundle/nsis/*.exe
+          if ($files.Count -eq 0) { throw "installer not found" }
+          $lines = foreach ($f in $files) { "{0}  {1}" -f (Get-FileHash $f.FullName -Algorithm SHA256).Hash.ToLower(), $f.Name.Replace(' ', '.') }
+          $lines | Set-Content -Encoding ascii SHA256SUMS.txt
+          Get-Content SHA256SUMS.txt
+          gh release upload $env:TAG SHA256SUMS.txt --clobber

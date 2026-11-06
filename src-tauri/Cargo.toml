@@ -1,0 +1,53 @@
+[package]
+name = "discord-bridge"
+description = "Discord Bridge — Windows launcher for the official Discord client with managed Flowseal Zapret"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "discord_bridge_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+bridge-core = { path = "../crates/bridge-core" }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-single-instance = "2"
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+base64.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "sync", "io-util"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "http2"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std", "env-filter"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_Storage_FileSystem",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+ed25519-dalek.workspace = true
+
+# Windows e2e tests run the real helper pipe server against the real client.
+[target.'cfg(windows)'.dev-dependencies]
+discord-bridge-helper = { path = "../crates/bridge-helper" }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]

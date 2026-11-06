@@ -1,0 +1,21 @@
+name: Стратегия / провайдер
+description: Какая стратегия работает или не работает у вашего провайдера
+labels: [strategy]
+body:
+  - type: input
+    id: isp
+    attributes: { label: Провайдер и регион }
+  - type: input
+    id: strategy
+    attributes: { label: Стратегия }
+    validations: { required: true }
+  - type: checkboxes
+    id: result
+    attributes:
+      label: Результат
+      options:
+        - label: Discord открывается (текст, картинки)
+        - label: Голосовые каналы подключаются
+  - type: textarea
+    id: notes
+    attributes: { label: Подробности }

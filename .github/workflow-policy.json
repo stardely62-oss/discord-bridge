@@ -1,0 +1,16 @@
+{
+  "$comment": "Checked by scripts/ci/check-workflows.mjs. Jobs allowed to write to the repository (publish only: download artifacts, no build, no secrets) and jobs allowed to read signing secrets (protected environment, main only, dispatch only, dependency-free signer only).",
+  "writeJobs": {
+    "release.yml": ["publish"],
+    "flowseal-manifest.yml": ["publish"]
+  },
+  "signingJobs": {
+    "flowseal-manifest.yml": {
+      "sign": {
+        "environment": "flowseal-sign",
+        "secrets": ["FLOWSEAL_MANIFEST_SIGNING_KEY"],
+        "signer": ["node scripts/sign/sign-ed25519.mjs"]
+      }
+    }
+  }
+}

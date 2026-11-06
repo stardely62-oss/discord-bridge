@@ -1,0 +1,4 @@
+# Keep Flowseal fixtures byte-exact (CRLF)
+*.bat -text
+crates/bridge-core/tests/fixtures/** -text
+*.txt -text

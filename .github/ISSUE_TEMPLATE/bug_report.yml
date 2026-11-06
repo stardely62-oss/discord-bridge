@@ -1,0 +1,24 @@
+name: Ошибка
+description: Что-то работает не так
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes: { label: Версия Discord Bridge, placeholder: 0.1.0-alpha.1 }
+    validations: { required: true }
+  - type: input
+    id: strategy
+    attributes: { label: Стратегия, placeholder: general (ALT2) }
+  - type: dropdown
+    id: os
+    attributes: { label: Windows, options: [Windows 11 x64, Windows 10 x64, Другое] }
+  - type: textarea
+    id: what
+    attributes: { label: Что произошло и что ожидалось }
+    validations: { required: true }
+  - type: textarea
+    id: report
+    attributes:
+      label: Обезличенный отчёт
+      description: Диагностика → «Экспорт отчёта». Проверьте файл перед публикацией.
+      render: json

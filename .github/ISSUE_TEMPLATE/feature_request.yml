@@ -1,0 +1,8 @@
+name: Предложение
+description: Идея для новой функции
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes: { label: Что предлагаете и зачем }
+    validations: { required: true }

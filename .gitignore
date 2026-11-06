@@ -1,0 +1,68 @@
+# Build output
+/target/
+node_modules/
+/dist/
+src-tauri/target/
+src-tauri/gen/
+# Flowseal binaries are fetched and hash-verified at build time (scripts/fetch-flowseal.mjs)
+/resources/flowseal/*/
+# Local/editor
+.DS_Store
+*.log
+.vscode/
+.idea/
+src-tauri/binaries/*.exe
+scripts/preview/catalog.json
+scripts/preview/specs.json
+
+# --- Secrets and private material (never commit) -------------------------
+# Environment files; only explicit examples are allowed.
+.env
+.env.*
+!.env.example
+!.env.sample
+# Private keys and signing seeds. Public keys (*.b64 under keys/ and test
+# fixtures) stay tracked on purpose.
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.seed
+*seed*.b64
+*private*.b64
+*private-key.*
+*private_key*
+*signing-key*
+id_rsa*
+id_ed25519*
+!*.pub
+# Credentials and local tokens
+credentials*.json
+*credentials*
+.netrc
+.npmrc
+.pypirc
+hosts.yml
+*.token
+token.txt
+gh-token*
+# Temporary signing output / scratch
+*.unsigned.json
+/payload/
+/signed/
+/dist-release/
+# Dumps and diagnostics that can contain personal data (paths, IPs, logs)
+*.dmp
+*.mdmp
+*.etl
+*.pcap
+*.pcapng
+*.har
+diagnostics-*.zip
+*.diag.json
+# Local agent / assistant scratch that may hold private values
+.claude/
+CLAUDE.local.md
+*.scratch

@@ -1,0 +1,34 @@
+name: Published catalog
+# Network check of the real signed catalog (GitHub releases), kept apart from
+# the offline CI so GitHub availability never makes it flaky. Fails when the
+# published catalog does not verify with the key pinned in this commit, when
+# its serial is older than the built-in snapshot, or when the release URLs
+# the app uses do not serve it.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
+permissions:
+  contents: read
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+      - name: Download with the exact URLs the app uses
+        run: |
+          set -euo pipefail
+          mkdir live && cd live
+          curl -sSfL --retry 3 -o catalog.signed.json https://github.com/stardely62-oss/discord-bridge-catalog/releases/latest/download/catalog.signed.json
+          serial=$(python3 -c "import json,base64;print(json.loads(base64.b64decode(json.load(open('catalog.signed.json'))['manifest']))['serial'])")
+          echo "latest published serial: $serial"
+          curl -sSfL --retry 3 -o catalog-data.json "https://github.com/stardely62-oss/discord-bridge-catalog/releases/download/catalog-$serial/catalog-data.json"
+          builtin=$(python3 -c "import json;print(json.load(open('../resources/catalog/builtin-catalog.json'))['serial'])")
+          echo "built-in serial: $builtin"
+          [ "$serial" -ge "$builtin" ] || { echo "published catalog is older than the built-in snapshot"; exit 1; }
+          if [ "$serial" = "$builtin" ]; then cmp catalog-data.json ../resources/catalog/builtin-catalog.json && echo "built-in snapshot = published data"; fi
+      - name: Verify exactly as the app does (pinned key, hashes, packs, icons)
+        run: cargo run -q -p bridge-tools -- catalog-verify live/catalog.signed.json live/catalog-data.json

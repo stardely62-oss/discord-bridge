@@ -1,0 +1,22 @@
+# Gitleaks configuration (CI job "Security", pinned gitleaks binary).
+# Default rules plus project-specific ones. Public keys (*.b64 under keys/
+# and test fixtures) are not secrets; leaked private seeds of the pinned
+# keys are found precisely by scripts/ci/check-private-keys.mjs.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "ed25519-seed-assignment"
+description = "A base64 Ed25519 seed assigned to a signing/private key variable"
+regex = '''(?i)(signing[_-]?key|private[_-]?key|seed)["']?\s*[:=]\s*["']?([A-Za-z0-9+/]{43}=)'''
+secretGroup = 2
+keywords = ["signing_key", "signing-key", "signingkey", "private_key", "private-key", "privatekey", "seed"]
+
+[allowlist]
+description = "Public keys and signed public test fixtures"
+paths = [
+  '''^keys/[^/]+\.b64$''',
+  '''^crates/bridge-core/tests/fixtures/''',
+  '''^resources/catalog/''',
+  '''^pnpm-lock\.yaml$''',
+]

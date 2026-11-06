@@ -1,0 +1,54 @@
+name: Flowseal manifest
+
+# Publishes a signed manifest that allows installed Discord Bridge clients to
+# update their Flowseal bundle. Run manually after reviewing the new release.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Flowseal version (tag), e.g. 1.10.5"
+        required: true
+      sha256:
+        description: "Reviewed SHA-256 of zapret-discord-youtube-<version>.zip"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Download official archive and verify the reviewed hash
+        env:
+          VERSION: ${{ github.event.inputs.version }}
+          SHA: ${{ github.event.inputs.sha256 }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9A-Za-z.-]+$ ]] || { echo "bad version"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{64}$ ]] || { echo "bad sha256"; exit 1; }
+          url="https://github.com/Flowseal/zapret-discord-youtube/releases/download/${VERSION}/zapret-discord-youtube-${VERSION}.zip"
+          curl -fsSL "$url" -o flowseal.zip
+          echo "$SHA  flowseal.zip" | sha256sum -c -
+          jq -n --arg v "$VERSION" --arg u "$url" --arg s "$SHA" \
+            '{version:$v, winwsVersion:"see bundle", url:$u, sha256:$s, archiveRoot:("zapret-discord-youtube-"+$v+"/")}' > lock.json
+      - name: Build bundle (fails if any strategy cannot be imported)
+        run: cargo run -q -p bridge-tools -- bundle lock.json flowseal.zip out
+      - name: Sign
+        env:
+          FLOWSEAL_MANIFEST_SIGNING_KEY: ${{ secrets.FLOWSEAL_MANIFEST_SIGNING_KEY }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          cargo run -q -p bridge-tools -- sign "out/${VERSION}/bundle-manifest.json" "flowseal-${VERSION}.signed.json"
+          cargo run -q -p bridge-tools -- verify "flowseal-${VERSION}.signed.json"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version }}
+        run: |
+          gh release create "flowseal-${VERSION}" "flowseal-${VERSION}.signed.json" \
+            --title "Flowseal ${VERSION} — signed manifest" \
+            --notes "Подписанный манифест для обновления Flowseal ${VERSION} в Discord Bridge. Архив: официальный релиз Flowseal, SHA-256 ${{ github.event.inputs.sha256 }}." \
+            --latest=false

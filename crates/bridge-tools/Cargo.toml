@@ -1,0 +1,16 @@
+[package]
+name = "bridge-tools"
+description = "Build-time tools: unpack and verify the pinned Flowseal release, generate and sign bundle manifests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+bridge-core = { path = "../bridge-core" }
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+ed25519-dalek.workspace = true
+zip = { version = "2", default-features = false, features = ["deflate"] }

@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --c-bg: 17 18 20;
+  --c-rail: 12 13 15;
+  --c-sunken: 14 14 18;
+  --c-surface: 23 24 27;
+  --c-surface-2: 29 30 34;
+  --c-surface-3: 37 38 43;
+  --c-line: 42 43 49;
+  --c-line-strong: 58 59 67;
+  --c-ink: 232 232 236;
+  --c-ink-muted: 162 163 173;
+  --c-ink-faint: 111 112 122;
+  --c-accent: 124 108 240;
+  --c-accent-strong: 108 92 224;
+  --c-ok: 60 196 141;
+  --c-warn: 230 167 65;
+  --c-bad: 239 95 103;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --c-bg: 244 244 247;
+  --c-rail: 236 236 241;
+  --c-sunken: 248 248 251;
+  --c-surface: 255 255 255;
+  --c-surface-2: 246 246 249;
+  --c-surface-3: 234 234 240;
+  --c-line: 224 224 231;
+  --c-line-strong: 202 202 212;
+  --c-ink: 24 24 30;
+  --c-ink-muted: 88 89 102;
+  --c-ink-faint: 134 135 148;
+  --c-accent: 98 82 224;
+  --c-accent-strong: 84 68 206;
+  --c-ok: 20 145 94;
+  --c-warn: 178 116 8;
+  --c-bad: 206 52 64;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-ink antialiased;
+  font-size: 14px;
+  user-select: none;
+}
+
+input,
+textarea,
+.selectable {
+  user-select: text;
+}
+
+::selection {
+  background: rgb(var(--c-accent) / 0.33);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-line-strong)) transparent;
+}
+
+/* Native number spinners are replaced by NumberField's own buttons. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+:where(:focus-visible) {
+  outline: 2px solid rgb(var(--c-accent));
+  outline-offset: 1px;
+  border-radius: 6px;
+}
+
+/* In the components layer so utilities (e.g. pl-9) can override them. */
+@layer components {
+  .card {
+    @apply rounded-lg border border-line bg-surface;
+  }
+  .field {
+    @apply w-full rounded-md border border-line bg-surface-2 px-3 py-[7px] text-sm text-ink placeholder:text-ink-faint transition-colors focus:border-accent focus:outline-none disabled:opacity-60;
+  }
+  select.field {
+    @apply appearance-none bg-no-repeat pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8c98' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+  }
+  .field-error {
+    @apply border-bad/70;
+  }
+  .label {
+    @apply text-xs font-medium text-ink-muted;
+  }
+  .code-box {
+    @apply rounded-md border border-line bg-sunken font-mono text-[11px] leading-5 text-ink-muted;
+  }
+  .skeleton {
+    @apply animate-pulse rounded-md bg-surface-3;
+  }
+  .kbd-row {
+    @apply flex items-center justify-between gap-4 py-2.5;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.cm-editor {
+  @apply rounded-md border border-line;
+  font-size: 12.5px;
+  height: 100%;
+}
+.cm-editor.cm-focused {
+  outline: none;
+  @apply border-accent;
+}
+.cm-scroller {
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace !important;
+}
+.cm-flat .cm-editor {
+  border: 0;
+  border-radius: 0;
+}
+
+/* Brand mark: the approved logo has separate versions for dark and light backgrounds. */
+.brand-on-light {
+  display: none;
+}
+:root[data-theme="light"] .brand-on-light {
+  display: block;
+}
+:root[data-theme="light"] .brand-on-dark {
+  display: none;
+}

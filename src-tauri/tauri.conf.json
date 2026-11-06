@@ -1,0 +1,79 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Discord Bridge",
+  "mainBinaryName": "discord-bridge",
+  "version": "0.1.0-alpha.10",
+  "identifier": "io.github.stardely62.discordbridge",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Discord Bridge",
+        "width": 1100,
+        "height": 720,
+        "minWidth": 880,
+        "minHeight": 600,
+        "center": true,
+        "visible": false,
+        "decorations": true,
+        "theme": "Dark",
+        "backgroundColor": "#0b0b0f"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src ipc: http://ipc.localhost; font-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "publisher": "Discord Bridge contributors",
+    "copyright": "MIT License. Flowseal, zapret (bol-van) and WinDivert are distributed under their own licenses.",
+    "category": "Utility",
+    "shortDescription": "Лаунчер Discord с управлением Flowseal Zapret",
+    "longDescription": "Discord Bridge запускает официальный клиент Discord и управляет встроенным Flowseal Zapret (winws) через ограниченную системную службу. Не является продуктом Discord Inc.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": {
+      "../resources/flowseal/": "flowseal/",
+      "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
+      "../LICENSE": "LICENSE",
+      "../licenses/": "licenses/"
+    },
+    "externalBin": [
+      "binaries/discord-bridge-helper"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installMode": "perMachine",
+        "languages": [
+          "Russian",
+          "English"
+        ],
+        "displayLanguageSelector": false,
+        "installerHooks": "./windows/hooks.nsh",
+        "installerIcon": "icons/icon.ico",
+        "startMenuFolder": "Discord Bridge"
+      }
+    }
+  },
+  "plugins": {}
+}
