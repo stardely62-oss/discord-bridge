@@ -326,6 +326,11 @@ pub enum RuleMatch {
 pub struct CardRule {
     pub index: usize,
     pub matched: RuleMatch,
+    /// Addresses of the card this rule actually handles: covered by its host
+    /// lists / inline domains and not removed by *its own* exclusion lists.
+    /// Protocol rules handle traffic, not addresses: 0.
+    #[serde(default)]
+    pub covers: usize,
 }
 
 /// L7 protocols that identify a service's own traffic in winws.
@@ -374,6 +379,7 @@ pub fn card_rules(
             out.push(CardRule {
                 index: r.index,
                 matched,
+                covers: 0,
             });
         }
     }
@@ -633,6 +639,42 @@ fn card_lists<'a>(c: &CardInput<'a>) -> Vec<&'a str> {
     }
 }
 
+/// How many of the card's domains `rule` really handles (see `CardRule::covers`).
+fn rule_covers(
+    card: &CardInput,
+    domains: &[DomainInfo],
+    m: &RuleMatch,
+    rule: &RuleInfo,
+    ctx: &Context,
+) -> usize {
+    let user_exclude = ctx.effective.exclude.join("\n");
+    let excl: Vec<HostEntry> = rule
+        .hostlist_excludes
+        .iter()
+        .flat_map(|name| {
+            if name == crate::lists::USER_EXCLUDE {
+                parse_hostlist(&user_exclude)
+            } else {
+                ctx.lists
+                    .get(name)
+                    .map(|t| parse_hostlist(t))
+                    .unwrap_or_default()
+            }
+        })
+        .collect();
+    let excluded = |d: &str| excl.iter().any(|e| covers(&e.domain, e.exact, d));
+    domains
+        .iter()
+        .filter(|d| match m {
+            RuleMatch::Hostlist(l) if l == USER_GENERAL => card.kind == CardKind::Installed,
+            RuleMatch::Hostlist(l) => d.sources.iter().any(|s| &s.list == l),
+            RuleMatch::Domains(ds) => ds.iter().any(|x| related(x, &d.domain)),
+            RuleMatch::Protocol(_) => false,
+        })
+        .filter(|d| !excluded(&d.domain))
+        .count()
+}
+
 /// Details of one card. `all`: every card (for shared domains).
 pub fn details(card: &CardInput, all: &[CardInput], ctx: &Context) -> CardDetails {
     let hostlists = parsed(ctx, ListKind::Hostlist);
@@ -644,13 +686,29 @@ pub fn details(card: &CardInput, all: &[CardInput], ctx: &Context) -> CardDetail
         .collect();
     let domains = analyze_domains(card.domains, &hostlists, &excludes, &others);
     let facts = ctx.selected.map(|s| strategy_facts(s, &ctx.game_filter));
-    let lists = card_lists(card);
-    let rules = match (&facts, card.kind) {
+    // The card's own list plus every Flowseal list that really contains one
+    // of its domains (e.g. dns.google of the Google card is in list-general.txt).
+    let mut lists = card_lists(card);
+    if card.kind == CardKind::Flowseal {
+        for src in domains.iter().flat_map(|d| d.sources.iter()) {
+            if !lists.contains(&src.list.as_str()) {
+                lists.push(src.list.as_str());
+            }
+        }
+    }
+    let mut rules = match (&facts, card.kind) {
         (Some(f), CardKind::Flowseal | CardKind::Installed) => {
             card_rules(f, card.id, &lists, card.domains)
         }
         _ => vec![],
     };
+    if let Some(f) = &facts {
+        for r in &mut rules {
+            if let Some(info) = f.rules.iter().find(|x| x.index == r.index) {
+                r.covers = rule_covers(card, &domains, &r.matched, info, ctx);
+            }
+        }
+    }
     let in_flowseal = domains.iter().filter(|d| !d.sources.is_empty()).count();
     let excluded = domains.iter().filter(|d| !d.excluded_by.is_empty()).count();
     let handled = domains
@@ -679,7 +737,9 @@ pub fn details(card: &CardInput, all: &[CardInput], ctx: &Context) -> CardDetail
     });
     let state = if !known {
         ApplyState::Unknown
-    } else if rules.is_empty() || handled == 0 {
+    } else if handled == 0 || !rules.iter().any(|r| r.covers > 0) {
+        // A rule that matches the card but handles none of its addresses
+        // (all excluded for that rule, or another list) prepares nothing.
         ApplyState::Known
     } else if applied_config {
         ApplyState::Applied

@@ -500,3 +500,135 @@ fn every_list_file_is_listed_with_counts_from_the_file() {
     assert_eq!(get("list-exclude.txt").kind, ListKind::HostlistExclude);
     assert_eq!(get(IPSET_ALL_BACKUP).entries, 2);
 }
+
+// ------------------------------------------- regression: real coverage
+
+fn rule_strategy(args: Vec<crate::strategy::Arg>) -> crate::strategy::Strategy {
+    let mut st = strategy("general.bat");
+    st.id = "only-rule".into();
+    st.rules = vec![crate::strategy::Rule {
+        label: None,
+        enabled: true,
+        args,
+    }];
+    st
+}
+fn list_arg(opt: &str, list: &str) -> crate::strategy::Arg {
+    crate::strategy::Arg {
+        opt: opt.into(),
+        value: Some(ArgValue::List { list: list.into() }),
+    }
+}
+
+/// "Rule applied" must not appear when the selected strategy's rule matches
+/// the card but handles none of its non-excluded addresses — even though the
+/// card has other non-excluded addresses and the engine runs exactly this
+/// configuration.
+#[test]
+fn applied_needs_a_rule_that_really_covers_a_non_excluded_address() {
+    let mut w = world();
+    // The only rule: list-google.txt on TCP 443, with an exclusion list that
+    // removes the card's only list-google.txt domain.
+    w.lists.insert(
+        "list-exclude-extra.txt".into(),
+        "play.google.com\r\n".into(),
+    );
+    w.st = rule_strategy(vec![
+        crate::strategy::Arg::text("--filter-tcp", "443"),
+        list_arg("--hostlist", "list-google.txt"),
+        list_arg("--hostlist-exclude", "list-exclude-extra.txt"),
+        crate::strategy::Arg::text("--dpi-desync", "multisplit"),
+    ]);
+    // play.google.com is in list-google.txt (excluded by the rule);
+    // dns.google is in list-general.txt (no rule uses that list).
+    let card_domains = s(&["play.google.com", "dns.google"]);
+    let card = CardInput {
+        id: "google",
+        kind: CardKind::Flowseal,
+        flowseal_list: Some("list-google.txt"),
+        domains: &card_domains,
+        ips: &[],
+    };
+    let all = [CardInput { ..card }];
+    let d = details(&all[0], &all, &ctx(&w, running("only-rule", false)));
+    assert_eq!(d.rules.len(), 1, "the rule matches the card's list");
+    assert_eq!(d.rules[0].covers, 0, "but handles none of its addresses");
+    assert_eq!(d.summary.state, ApplyState::Known);
+    assert_ne!(d.summary.state, ApplyState::Applied);
+    // Without the exclusion the same rule covers play.google.com → applied.
+    w.st.rules[0].args.retain(|a| a.opt != "--hostlist-exclude");
+    let d = details(&all[0], &all, &ctx(&w, running("only-rule", false)));
+    assert_eq!(d.rules[0].covers, 1);
+    assert_eq!(d.summary.state, ApplyState::Applied);
+}
+
+#[test]
+fn a_rule_for_another_service_s_inline_domain_does_not_apply_to_this_card() {
+    let mut w = world();
+    w.st = rule_strategy(vec![
+        crate::strategy::Arg::text("--filter-tcp", "2053"),
+        crate::strategy::Arg::text("--hostlist-domains", "discord.media"),
+    ]);
+    let all = cards(&w);
+    let d = details(&all[1], &all, &ctx(&w, running("only-rule", false)));
+    assert!(d.rules.is_empty());
+    assert_eq!(d.summary.state, ApplyState::Known);
+}
+
+#[test]
+fn a_protocol_rule_alone_is_not_an_address_rule() {
+    let mut w = world();
+    w.st = rule_strategy(vec![
+        crate::strategy::Arg::text("--filter-udp", "19294-19344"),
+        crate::strategy::Arg::text("--filter-l7", "discord,stun"),
+    ]);
+    let all = cards(&w);
+    let d = details(&all[0], &all, &ctx(&w, running("only-rule", false)));
+    assert_eq!(d.rules.len(), 1);
+    assert_eq!(d.rules[0].covers, 0);
+    assert_eq!(d.summary.state, ApplyState::Known);
+}
+
+#[test]
+fn exclusions_count_only_for_rules_that_use_them() {
+    // general.bat: the list-google.txt rule (TCP 443) has no exclusion lists,
+    // so a list-exclude.txt entry does not remove youtube.com from it.
+    let mut w = world();
+    let mut ex = w.lists["list-exclude.txt"].clone();
+    ex.push_str("youtube.com\r\n");
+    w.lists.insert("list-exclude.txt".into(), ex);
+    let all = cards(&w);
+    let id = w.st.id.clone();
+    let d = details(&all[1], &all, &ctx(&w, running(&id, false)));
+    let r = d
+        .rules
+        .iter()
+        .find(|r| r.matched == RuleMatch::Hostlist("list-google.txt".into()))
+        .unwrap();
+    assert_eq!(r.covers, 2, "youtube.com and googlevideo.com");
+    assert_eq!(d.summary.state, ApplyState::Applied);
+}
+
+#[test]
+fn rules_of_every_list_that_contains_a_card_domain_are_counted() {
+    let w = world();
+    let all = cards(&w);
+    let id = w.st.id.clone();
+    // Google: dns.google is in list-general.txt, the rest in list-google.txt.
+    let d = details(&all[2], &all, &ctx(&w, running(&id, false)));
+    let lists: Vec<&str> = d
+        .rules
+        .iter()
+        .filter_map(|r| match &r.matched {
+            RuleMatch::Hostlist(l) => Some(l.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(lists.contains(&"list-google.txt") && lists.contains(&"list-general.txt"));
+    let general = d
+        .rules
+        .iter()
+        .find(|r| r.matched == RuleMatch::Hostlist("list-general.txt".into()))
+        .unwrap();
+    assert_eq!(general.covers, 1, "dns.google");
+}

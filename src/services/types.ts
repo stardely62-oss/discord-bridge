@@ -544,6 +544,8 @@ export type RuleMatch = { by: "hostlist"; value: string } | { by: "domains"; val
 export interface CardRule {
   index: number;
   matched: RuleMatch;
+  /** Service addresses this rule really handles (after its own exclusions); protocol rules: 0. */
+  covers: number;
 }
 
 export interface IpsetFacts {

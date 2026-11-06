@@ -269,6 +269,13 @@ function Overview({ d, pack, onFile }: { d: CardDetails; pack: CatalogPack | nul
                 {info && ruleProtocols(info).map((p) => <Badge key={p} tone="accent">{p}</Badge>)}
                 <span>{info ? rulePorts(info, tr) : ""}</span>
                 <span className="text-ink-faint">— {matchText(r.matched, tr)}</span>
+                {r.matched.by === "protocol" ? (
+                  <span className="text-ink-faint">{tr("· по протоколу, не по адресам", "· by protocol, not by address")}</span>
+                ) : r.covers > 0 ? (
+                  <span className="text-ink-faint">{tr(`· адресов сервиса: ${r.covers}`, `· service addresses: ${r.covers}`)}</span>
+                ) : (
+                  <span className="text-warn">{tr("· ни одного адреса сервиса (исключены)", "· no service address (excluded)")}</span>
+                )}
               </li>
             ))}
           </ul>
