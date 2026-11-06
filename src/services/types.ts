@@ -425,15 +425,37 @@ export interface StrategyDiff {
   orderChanged: boolean;
 }
 
+/** upToDate · available (Flowseal: and installable) · unavailable (newer Flowseal, not installable) · error (nothing known). */
+export type UpdateStatus = "upToDate" | "available" | "unavailable" | "error";
+
 export interface UpdateInfo {
+  status: UpdateStatus;
   current?: string | null;
   latest?: string | null;
   newer: boolean;
   changelog?: string | null;
+  /** Page of exactly the latest release (built from the validated tag). */
   url?: string | null;
   error?: string | null;
   installable: boolean;
   unavailableReason?: string | null;
+  /** Unix seconds. */
+  checkedAt: number;
+}
+
+export interface UpdatesView {
+  app?: UpdateInfo | null;
+  flowseal?: UpdateInfo | null;
+  checkingApp: boolean;
+  checkingFlowseal: boolean;
+}
+
+/** activated · rolledBack (previous version restored) · rollbackFailed · refused (nothing changed) · installFailed (nothing changed). */
+export interface FlowsealAction {
+  ok: boolean;
+  outcome: "activated" | "rolledBack" | "rollbackFailed" | "refused" | "installFailed";
+  message: string;
+  version: string;
 }
 
 export interface EditorParse {

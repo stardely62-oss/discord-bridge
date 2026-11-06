@@ -6,11 +6,13 @@ use crate::diagnostics::{self, CheckItem, CheckStatus, DiagnosticsReport, VoiceS
 use crate::discord::{self, DiscordStatus};
 use crate::state::{AppState, BundleState};
 use crate::strategies::{ImportPreview, StrategyDetails, StrategyListItem, StrategyManager};
-use crate::zapret::{self, ActivationResult, AutoProgress, UpdateInfo};
+use crate::zapret::{self, ActivationResult, AutoProgress, FlowsealAction};
 use bridge_core::diff::StrategyDiff;
 use bridge_core::ipc::{EngineState, EngineStatus, Request, Response};
 use bridge_core::strategy::options::{option_specs, OptionSpec};
 use bridge_core::strategy::Strategy;
+use bridge_core::updates::{self as upd, UpdateInfo};
+use bridge_updates::UpdatesView;
 use serde::Serialize;
 use std::sync::atomic::Ordering;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -312,21 +314,39 @@ pub async fn set_discord_path(
     Ok(discord::status(state.settings().discord_path.as_deref()))
 }
 
+/// Opens one of a fixed set of pages, or the page of a specific release
+/// (`app-release:<SemVer>`, `flowseal-release:<tag>`). Release URLs are built
+/// from a validated version, never taken from the caller; only https pages on
+/// github.com are opened.
 #[tauri::command]
 pub async fn open_external(app: AppHandle, target: String) -> R<()> {
-    let url = match target.as_str() {
-        "discord-download" => discord::DOWNLOAD_URL,
-        "repo" => "https://github.com/stardely62-oss/discord-bridge",
-        "releases" => "https://github.com/stardely62-oss/discord-bridge/releases",
-        "flowseal" => "https://github.com/Flowseal/zapret-discord-youtube",
-        "flowseal-releases" => "https://github.com/Flowseal/zapret-discord-youtube/releases",
-        "zapret" => "https://github.com/bol-van/zapret",
-        "windivert" => "https://github.com/basil00/WinDivert",
-        _ => return Err("неизвестная ссылка".into()),
-    };
+    let url = external_url(&target).ok_or("неизвестная ссылка")?;
     app.opener()
         .open_url(url, None::<&str>)
         .map_err(|e| e.to_string())
+}
+
+pub(crate) fn external_url(target: &str) -> Option<String> {
+    if let Some(v) = target.strip_prefix("app-release:") {
+        let v = upd::app_tag_version(&format!("v{v}"))?;
+        return Some(upd::app_release_url(&v));
+    }
+    if let Some(t) = target.strip_prefix("flowseal-release:") {
+        return upd::flowseal_release_url(t);
+    }
+    Some(
+        match target {
+            "discord-download" => discord::DOWNLOAD_URL,
+            "repo" => "https://github.com/stardely62-oss/discord-bridge",
+            "releases" => "https://github.com/stardely62-oss/discord-bridge/releases",
+            "flowseal" => "https://github.com/Flowseal/zapret-discord-youtube",
+            "flowseal-releases" => "https://github.com/Flowseal/zapret-discord-youtube/releases",
+            "zapret" => "https://github.com/bol-van/zapret",
+            "windivert" => "https://github.com/basil00/WinDivert",
+            _ => return None,
+        }
+        .to_string(),
+    )
 }
 
 // ---------------- Strategies ----------------
@@ -1014,23 +1034,103 @@ pub async fn save_settings(
 
 // ---------------- Updates ----------------
 
+fn flowseal_current(state: &AppState) -> Option<String> {
+    state.bundle.lock().expect("lock").version.clone()
+}
+
+fn updates_changed(app: &AppHandle, state: &AppState) {
+    let _ = app.emit("updates-changed", state.updates.view());
+}
+
+/// The last results of both checks (the startup check may have run while
+/// the window was hidden).
 #[tauri::command]
-pub async fn flowseal_check_update(state: State<'_, AppState>) -> R<UpdateInfo> {
-    Ok(zapret::check_flowseal_update(&state).await)
+pub async fn updates_get(state: State<'_, AppState>) -> R<UpdatesView> {
+    Ok(state.updates.view())
+}
+
+#[tauri::command]
+pub async fn flowseal_check_update(app: AppHandle, state: State<'_, AppState>) -> R<UpdateInfo> {
+    let r = state
+        .updates
+        .check_flowseal(&state.http, flowseal_current(&state))
+        .await;
+    updates_changed(&app, &state);
+    Ok(r)
+}
+
+#[tauri::command]
+pub async fn app_check_update(app: AppHandle, state: State<'_, AppState>) -> R<UpdateInfo> {
+    let r = state.updates.check_app(&state.http).await;
+    updates_changed(&app, &state);
+    Ok(r)
+}
+
+/// Startup check: once per session, only with `checkUpdatesOnStart`, in the
+/// background (the window may stay hidden), after the active Flowseal
+/// version is known. It never retries on its own.
+pub fn spawn_startup_update_check(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_secs(8)).await;
+        let state = app.state::<AppState>();
+        if !state
+            .updates
+            .claim_startup_check(state.settings().check_updates_on_start)
+        {
+            return;
+        }
+        // The helper may still be starting (Windows logon): wait up to ~60 s
+        // for the active Flowseal version, then check with what is known.
+        for _ in 0..30 {
+            if flowseal_current(&state).is_some() || state.quitting.load(Ordering::SeqCst) {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        }
+        let v = state
+            .updates
+            .check_all(&state.http, flowseal_current(&state))
+            .await;
+        let status = |u: &Option<UpdateInfo>| u.as_ref().map(|u| u.status);
+        tracing::info!(
+            "startup update check: app {:?}, flowseal {:?}",
+            status(&v.app),
+            status(&v.flowseal)
+        );
+        let _ = app.emit("updates-changed", v);
+        refresh_tray(&app, &state).await;
+    });
 }
 
 /// Install a verified Flowseal release, then switch to it transactionally
-/// (the previous version stays installed for rollback).
+/// (the previous version stays installed for rollback). The signed manifest
+/// and the archive are verified here and again inside the helper.
 #[tauri::command]
 pub async fn flowseal_install(
     app: AppHandle,
     state: State<'_, AppState>,
     version: String,
-) -> R<String> {
+) -> R<FlowsealAction> {
     zapret::ensure_not_auto(&state)?;
-    zapret::install_flowseal(&state, &version).await?;
+    if let Err(e) = zapret::install_flowseal(&state, &version).await {
+        return Ok(FlowsealAction {
+            ok: false,
+            outcome: "installFailed".into(),
+            message: format!("Flowseal {version} не установлен: {e}. Текущая версия не изменилась"),
+            version,
+        });
+    }
     zapret::load_bundle(&state).await;
-    zapret::switch_bundle(&app, &state, &version).await
+    let r = zapret::switch_bundle(&app, &state, &version).await;
+    // The installed version changes what "newer" means.
+    if r.ok {
+        state
+            .updates
+            .check_flowseal(&state.http, flowseal_current(&state))
+            .await;
+        updates_changed(&app, &state);
+    }
+    Ok(r)
 }
 
 #[tauri::command]
@@ -1038,8 +1138,8 @@ pub async fn flowseal_set_active(
     app: AppHandle,
     state: State<'_, AppState>,
     version: String,
-) -> R<String> {
-    zapret::switch_bundle(&app, &state, &version).await
+) -> R<FlowsealAction> {
+    Ok(zapret::switch_bundle(&app, &state, &version).await)
 }
 
 /// User strategies that would not work with Flowseal `version`.
@@ -1049,11 +1149,6 @@ pub async fn flowseal_compat(
     version: String,
 ) -> R<Vec<zapret::CompatEntry>> {
     zapret::compat_report(&state, &version)
-}
-
-#[tauri::command]
-pub async fn app_check_update(state: State<'_, AppState>) -> R<UpdateInfo> {
-    Ok(zapret::check_app_update(&state).await)
 }
 
 #[tauri::command]
@@ -1141,5 +1236,30 @@ mod list_file_tests {
             super::parse_list_text("\u{feff}a.com\r\n\n  # note \nb.org\n"),
             vec!["a.com", "# note", "b.org"]
         );
+    }
+
+    #[test]
+    fn external_links_are_fixed_or_built_from_validated_versions() {
+        assert_eq!(
+            super::external_url("app-release:0.1.0-alpha.11").as_deref(),
+            Some("https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11")
+        );
+        assert_eq!(
+            super::external_url("flowseal-release:1.10.5").as_deref(),
+            Some("https://github.com/Flowseal/zapret-discord-youtube/releases/tag/1.10.5")
+        );
+        assert!(super::external_url("releases").is_some());
+        for bad in [
+            "app-release:0.1.0/../../x",
+            "app-release:https://evil.example",
+            "app-release:",
+            "flowseal-release:1.10.5/../x",
+            "flowseal-release:file:///c:/x",
+            "https://evil.example",
+            "file:///C:/Windows/System32/calc.exe",
+            "unknown",
+        ] {
+            assert!(super::external_url(bad).is_none(), "{bad}");
+        }
     }
 }

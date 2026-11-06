@@ -57,6 +57,41 @@ fn texts(lang: &str) -> Texts {
     }
 }
 
+/// One line about available updates for the tray tooltip (None: nothing new).
+fn update_hint(v: &bridge_updates::UpdatesView, lang: &str) -> Option<String> {
+    use bridge_core::updates::UpdateStatus;
+    let en = lang == "en";
+    let mut parts = Vec::new();
+    if let Some(a) = v
+        .app
+        .as_ref()
+        .filter(|a| a.status == UpdateStatus::Available)
+    {
+        parts.push(format!(
+            "Discord Bridge {}",
+            a.latest.as_deref().unwrap_or("?")
+        ));
+    }
+    if let Some(f) = v
+        .flowseal
+        .as_ref()
+        .filter(|f| f.status == UpdateStatus::Available)
+    {
+        parts.push(format!("Flowseal {}", f.latest.as_deref().unwrap_or("?")));
+    }
+    (!parts.is_empty()).then(|| {
+        format!(
+            "{}: {}",
+            if en {
+                "Update available"
+            } else {
+                "Доступно обновление"
+            },
+            parts.join(", ")
+        )
+    })
+}
+
 fn state_icon(running: bool) -> Option<tauri::image::Image<'static>> {
     tauri::image::Image::from_bytes(if running { ICON_ON } else { ICON_OFF }).ok()
 }
@@ -122,8 +157,16 @@ pub fn refresh(app: &AppHandle, running: bool, active: Option<String>) {
         if let Ok(menu) = build_menu(app, running, active) {
             let _ = tray.set_menu(Some(menu));
         }
-        let t = texts(&app.state::<AppState>().settings().language);
-        let _ = tray.set_tooltip(Some(if running { t.tip_on } else { t.tip_off }));
+        let state = app.state::<AppState>();
+        let lang = state.settings().language;
+        let t = texts(&lang);
+        let base = if running { t.tip_on } else { t.tip_off };
+        // A found update is visible even while the window stays hidden.
+        let tip = match update_hint(&state.updates.view(), &lang) {
+            Some(h) => format!("{base}\n{h}"),
+            None => base.to_string(),
+        };
+        let _ = tray.set_tooltip(Some(tip));
         if let Some(icon) = state_icon(running) {
             let _ = tray.set_icon(Some(icon));
         }

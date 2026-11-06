@@ -1,8 +1,10 @@
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Activity, AppWindow, CheckCircle2, Home, Info, Layers, Settings as SettingsIcon, X, XCircle } from "lucide-react";
-import type { ReactNode } from "react";
+import { Activity, AppWindow, ArrowUpCircle, CheckCircle2, Home, Info, Layers, Settings as SettingsIcon, X, XCircle } from "lucide-react";
+import { useMemo, type ReactNode } from "react";
+import { api, errorText } from "../../services/api";
+import { noticesFor, type Notice } from "../../updates/notices";
 import { Page, useApp, useTr } from "../../stores/app";
-import { StatusDot } from "../ui";
+import { Button, StatusDot } from "../ui";
 
 export function Sidebar() {
   const { page, setPage, overview } = useApp();
@@ -91,6 +93,105 @@ export function Toasts() {
             </button>
           </motion.div>
         ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/**
+ * Unobtrusive update notices (bottom right): shown once per version and
+ * session, independent of the current page. Nothing is downloaded or
+ * installed from here.
+ */
+export function UpdateNotices() {
+  const { updates, seenNotices, dismissNotice, openSettings, toast } = useApp();
+  const tr = useTr();
+  const reduce = useReducedMotion();
+  const notices = useMemo(() => noticesFor(updates, new Set(seenNotices)), [updates, seenNotices]);
+  const text = (n: Notice): { title: string; body: string } => {
+    switch (n.kind) {
+      case "app":
+        return {
+          title: tr(`Доступна новая версия Discord Bridge — ${n.version}`, `A new Discord Bridge version is available — ${n.version}`),
+          body: tr("Установка вручную: скачайте установщик со страницы релиза.", "Install it manually from the release page."),
+        };
+      case "flowsealReady":
+        return {
+          title: tr(`Доступен Flowseal ${n.version}`, `Flowseal ${n.version} is available`),
+          body: tr("Подпись манифеста проверена. Установка — только по вашему подтверждению, прежнюю версию можно будет вернуть.", "The signed manifest is verified. It is installed only after you confirm; the previous version can be restored."),
+        };
+      case "flowsealUnavailable":
+        return {
+          title: tr(`Вышел Flowseal ${n.version}, но его пакет ещё не проверен для Discord Bridge`, `Flowseal ${n.version} is out, but its package is not verified for Discord Bridge yet`),
+          body: tr("Нужен подписанный манифест, опубликованный нашим проектом. Пока его нет, установить эту версию нельзя — текущая продолжает работать.", "A signed manifest published by this project is required. Until then this version cannot be installed; the current one keeps working."),
+        };
+    }
+  };
+  return (
+    <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-40 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
+      <AnimatePresence>
+        {notices.map((n) => {
+          const t = text(n);
+          const later = () => dismissNotice(n.key);
+          return (
+            <motion.div
+              key={n.key}
+              role="status"
+              initial={reduce ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-auto rounded-md border border-line-strong bg-surface px-3.5 py-3 text-[13px] shadow-pop"
+            >
+              <div className="flex items-start gap-3">
+                <ArrowUpCircle className={`mt-0.5 h-4 w-4 shrink-0 ${n.kind === "flowsealUnavailable" ? "text-ink-muted" : "text-accent"}`} />
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="font-medium">{t.title}</div>
+                  <div className="text-xs text-ink-muted">{t.body}</div>
+                  <div className="flex flex-wrap gap-2 pt-1.5">
+                    {n.kind === "app" && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => {
+                          later();
+                          api.openExternal(`app-release:${n.version}`).catch((e) => toast("error", errorText(e)));
+                        }}
+                      >
+                        {tr("Открыть релиз", "Open release")}
+                      </Button>
+                    )}
+                    {n.kind === "flowsealReady" && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={() => {
+                          later();
+                          openSettings("updates");
+                        }}
+                      >
+                        {tr("Перейти к обновлению", "Go to update")}
+                      </Button>
+                    )}
+                    {n.kind === "flowsealUnavailable" && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          later();
+                          openSettings("updates");
+                        }}
+                      >
+                        {tr("Подробнее", "Details")}
+                      </Button>
+                    )}
+                    <Button size="sm" variant="ghost" onClick={later}>
+                      {tr("Позже", "Later")}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          );
+        })}
       </AnimatePresence>
     </div>
   );

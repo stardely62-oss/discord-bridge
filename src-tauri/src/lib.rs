@@ -73,6 +73,7 @@ pub fn run() {
                 quitting: Default::default(),
                 catalog: catalog_sync::CatalogRuntime::production(data_dir.join("catalog")),
                 list_cache: Mutex::new(None),
+                updates: bridge_updates::UpdateCenter::production(),
             };
             app.manage(state);
             platform::tray::create(&handle)?;
@@ -142,6 +143,7 @@ pub fn run() {
             });
 
             catalog_sync::spawn_periodic(handle.clone());
+            commands::spawn_startup_update_check(handle.clone());
 
             // Lightweight watcher: detects an engine that died on its own.
             let h = handle.clone();
@@ -269,6 +271,7 @@ pub fn run() {
             commands::flowseal_install,
             commands::flowseal_set_active,
             commands::app_check_update,
+            commands::updates_get,
             commands::get_bundle,
             commands::quit_app,
         ])

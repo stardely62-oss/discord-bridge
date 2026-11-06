@@ -75,6 +75,8 @@ pub struct AppState {
     pub catalog: crate::catalog_sync::CatalogRuntime,
     /// Verified original list files of the active Flowseal version.
     pub list_cache: Mutex<Option<crate::services::ListCache>>,
+    /// App and Flowseal update checks (see `bridge_updates`).
+    pub updates: bridge_updates::UpdateCenter,
 }
 
 pub const HISTORY_LIMIT: usize = 20;

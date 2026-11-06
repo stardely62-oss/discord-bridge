@@ -341,4 +341,19 @@ mod tests {
         assert!(s.installed_packs.is_empty());
         assert_eq!(s.user_lists.general, vec!["a.com"]);
     }
+
+    #[test]
+    fn automatic_update_checks_default_on_and_persist_when_turned_off() {
+        let d = tempfile::tempdir().unwrap();
+        let mut m = ConfigurationManager::load(d.path().to_path_buf());
+        assert!(m.settings.check_updates_on_start);
+        let mut s = m.settings.clone();
+        s.check_updates_on_start = false;
+        m.update(s).unwrap();
+        let again = ConfigurationManager::load(d.path().to_path_buf());
+        assert!(!again.settings.check_updates_on_start);
+        // Older settings files without the field keep the default (on).
+        let s: Settings = serde_json::from_str(r#"{"schemaVersion":2}"#).unwrap();
+        assert!(s.check_updates_on_start);
+    }
 }

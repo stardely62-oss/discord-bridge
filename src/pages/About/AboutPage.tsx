@@ -1,14 +1,14 @@
 import { ExternalLink, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Button, Card, PageHeader } from "../../components/ui";
-import { api } from "../../services/api";
-import type { UpdateInfo } from "../../services/types";
+import { api, errorText } from "../../services/api";
 import { useApp, useTr } from "../../stores/app";
+import { appReleaseTarget } from "../../updates/notices";
 
 export default function AboutPage() {
-  const { overview } = useApp();
+  const { overview, updates, setUpdates, toast } = useApp();
   const tr = useTr();
-  const [upd, setUpd] = useState<UpdateInfo | null>(null);
+  const upd = updates?.app ?? null;
   const [checking, setChecking] = useState(false);
   const links: [string, string, string][] = [
     ["repo", "Discord Bridge", tr("Исходный код, MIT", "Source code, MIT")],
@@ -19,7 +19,10 @@ export default function AboutPage() {
   const check = async () => {
     setChecking(true);
     try {
-      setUpd(await api.appCheckUpdate());
+      await api.appCheckUpdate();
+      setUpdates(await api.updatesGet());
+    } catch (e) {
+      toast("error", errorText(e));
     } finally {
       setChecking(false);
     }
@@ -36,7 +39,7 @@ export default function AboutPage() {
           </div>
           {upd && (
             <div className="mt-1 text-xs">
-              {upd.error ? <span className="text-warn">{upd.error}</span> : upd.newer ? <span className="text-accent">{tr(`Доступна версия ${upd.latest}`, `Version ${upd.latest} available`)}</span> : <span className="text-ok">{tr("Установлена последняя версия", "Up to date")}</span>}
+              {upd.status === "error" ? <span className="text-warn">{tr("Проверить обновления не удалось", "Update check failed")}: {upd.error}</span> : upd.status === "available" ? <span className="text-accent">{tr(`Доступна версия ${upd.latest}`, `Version ${upd.latest} available`)}</span> : <span className="text-ok">{tr("Установлена последняя версия", "Up to date")}</span>}
             </div>
           )}
         </div>
@@ -44,8 +47,8 @@ export default function AboutPage() {
           <Button size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={checking} onClick={check}>
             {tr("Проверить обновления", "Check for updates")}
           </Button>
-          {upd?.newer && (
-            <Button size="sm" variant="primary" onClick={() => api.openExternal("releases")}>
+          {appReleaseTarget(upd) && (
+            <Button size="sm" variant="primary" onClick={() => api.openExternal(appReleaseTarget(upd)!).catch((e) => toast("error", errorText(e)))}>
               {tr("Открыть релиз", "Open release")}
             </Button>
           )}

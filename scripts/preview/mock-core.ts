@@ -164,6 +164,13 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   service_details: (a) => (svc().details as { summary: { id: string } }[]).find((d) => d.summary.id === a.id),
   flowseal_list_page: listPage,
   flowseal_list_text: (a) => listFiles[a.name as string] ?? "",
+  // Preview only: example results (no real releases are implied).
+  updates_get: () => ({
+    app: { status: "available", current: "0.1.0-alpha.10", latest: "0.1.0-alpha.11", newer: true, installable: false, url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11", changelog: "Пример заметок к релизу (превью).", checkedAt: Math.floor(Date.now() / 1000) },
+    flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Discord Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
+    checkingApp: false,
+    checkingFlowseal: false,
+  }),
 };
 export async function invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
   const h = handlers[cmd];
