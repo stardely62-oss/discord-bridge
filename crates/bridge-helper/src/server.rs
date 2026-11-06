@@ -499,6 +499,14 @@ impl Helper {
             Request::EngineLog => Response::EngineLog {
                 lines: lock(&self.ctl).backend.log_lines(),
             },
+            Request::ReadBundleList {
+                version,
+                name,
+                offset,
+            } => match bundles::read_bundle_list(&self.bundles(), &version, &name, offset) {
+                Ok(r) => r,
+                Err(e) => err("list", &e),
+            },
         }
     }
 }

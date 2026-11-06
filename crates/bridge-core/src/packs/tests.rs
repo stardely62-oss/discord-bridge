@@ -179,7 +179,7 @@ fn replaced_pack_or_icon_is_rejected() {
 }
 
 #[test]
-fn unsupported_format_and_too_new_schema_are_reported() {
+fn unsupported_format_is_reported() {
     let (k, pk) = key();
     let doc = serde_json::json!({"kind": CATALOG_KIND, "format": 2});
     let signed = serde_json::to_vec(&sign_bytes(&serde_json::to_vec(&doc).unwrap(), &k)).unwrap();
@@ -187,9 +187,49 @@ fn unsupported_format_and_too_new_schema_are_reported() {
         verify_manifest(&signed, &[&pk], APP),
         Err(CatalogError::UnsupportedFormat(2))
     );
-    let mut d = data(1, vec![pack("steam", 1, &["steampowered.com"], &[])]);
-    d.packs[0].schema = 2;
-    let (s, b) = publish(&k, &d);
+}
+
+/// Forward compatibility: a newer catalog may add packs of a newer schema or
+/// descriptive fields. The catalog still verifies; newer packs are left out,
+/// unknown fields are ignored; everything else keeps working.
+#[test]
+fn newer_pack_schemas_are_left_out_and_unknown_fields_ignored() {
+    let (k, pk) = key();
+    let mut d = data(
+        1,
+        vec![
+            pack("steam", 1, &["steampowered.com"], &[]),
+            pack("future", 1, &["future.example"], &[]),
+        ],
+    );
+    d.packs[1].schema = 2;
+    let mut v = serde_json::to_value(&d).unwrap();
+    v["packs"][0]["domainGroups"] =
+        serde_json::json!([{"name": "store", "domains": ["steampowered.com"]}]);
+    v["packs"][1]["somethingNew"] = serde_json::json!({"a": 1});
+    let bytes = serde_json::to_vec(&v).unwrap();
+    let d2: CatalogData = serde_json::from_slice(&bytes).unwrap();
+    let (s, _) = publish(&k, &d2);
+    // Publish the exact bytes with the extra fields (the hash covers them).
+    let m: SignedManifest = serde_json::from_slice(&s).unwrap();
+    let mut man: CatalogManifest =
+        serde_json::from_slice(&verify_signed_bytes(&m, &[&pk]).unwrap()).unwrap();
+    man.data.sha256 = sha256_hex(&bytes);
+    man.data.size = bytes.len() as u64;
+    man.pack_schema = 2;
+    let signed = serde_json::to_vec(&sign_bytes(&serde_json::to_vec(&man).unwrap(), &k)).unwrap();
+    let got = verify_catalog(&signed, &bytes, &[&pk], APP).unwrap();
+    let ids: Vec<&str> = got
+        .data
+        .usable_packs(APP)
+        .iter()
+        .map(|p| p.id.as_str())
+        .collect();
+    assert_eq!(ids, vec!["steam"]);
+    // A schema 0 pack is still an error.
+    let mut bad = data(1, vec![pack("steam", 1, &["steampowered.com"], &[])]);
+    bad.packs[0].schema = 0;
+    let (s, b) = publish(&k, &bad);
     assert!(matches!(
         verify_catalog(&s, &b, &[&pk], APP),
         Err(CatalogError::BadPack { .. })

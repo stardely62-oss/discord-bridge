@@ -100,8 +100,11 @@ pub struct Requirements {
     pub game_filter: bool,
 }
 
+/// Unknown fields are ignored (a newer catalog may add descriptive data;
+/// the catalog's own CI rejects typos). A pack of a newer `schema` is not
+/// used at all: see [`CatalogData::usable_packs`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
 pub struct Pack {
     pub schema: u32,
     /// Stable id (`[a-z0-9-]`, 1–40).
@@ -274,8 +277,12 @@ impl Pack {
         if !id_ok(id) {
             return Err(bad(id, "недопустимый идентификатор"));
         }
-        if self.schema == 0 || self.schema > PACK_SCHEMA {
-            return Err(bad(id, format!("неподдерживаемая схема {}", self.schema)));
+        if self.schema == 0 {
+            return Err(bad(id, "неподдерживаемая схема 0"));
+        }
+        if self.schema > PACK_SCHEMA {
+            // A newer pack format: not interpreted and not used by this client.
+            return Ok(());
         }
         if self.version == 0 {
             return Err(bad(id, "версия должна быть ≥ 1"));
@@ -493,9 +500,10 @@ impl CatalogData {
         self.packs
             .iter()
             .filter(|p| {
-                p.min_app_version
-                    .as_deref()
-                    .is_none_or(|v| app_at_least(app_version, v))
+                p.schema <= PACK_SCHEMA
+                    && p.min_app_version
+                        .as_deref()
+                        .is_none_or(|v| app_at_least(app_version, v))
             })
             .collect()
     }
@@ -549,9 +557,8 @@ pub fn verify_manifest(
     }
     let m: CatalogManifest = serde_json::from_slice(&bytes)
         .map_err(|e| CatalogError::Malformed(format!("манифест: {e}")))?;
-    if m.pack_schema > PACK_SCHEMA {
-        return Err(CatalogError::UnsupportedFormat(m.pack_schema));
-    }
+    // A newer pack schema in the catalog is fine: such packs are left out
+    // (`usable_packs`), the others stay usable.
     if let Some(v) = &m.min_app_version {
         if !app_at_least(app_version, v) {
             return Err(CatalogError::AppTooOld(v.clone()));

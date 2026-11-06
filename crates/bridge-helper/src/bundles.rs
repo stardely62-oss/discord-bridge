@@ -257,6 +257,58 @@ pub struct LockedFiles {
     _files: Vec<File>,
 }
 
+/// Read-only access to a list file of an installed Flowseal version for the
+/// UI (which cannot read the protected bundle directory). Only files listed
+/// in the bundle manifest under `lists/` are served, after their SHA-256 was
+/// checked against the manifest; the file is returned in chunks.
+pub fn read_bundle_list(
+    all: &[Bundle],
+    version: &str,
+    name: &str,
+    offset: u64,
+) -> Result<bridge_core::ipc::Response, String> {
+    use base64::Engine as _;
+    use bridge_core::ipc::{Response, LIST_CHUNK, MAX_LIST_FILE};
+    if name.is_empty()
+        || name.len() > 64
+        || name.contains(['/', '\\', ':'])
+        || name.starts_with('.')
+        || name.contains("..")
+    {
+        return Err("недопустимое имя списка".into());
+    }
+    let b = all
+        .iter()
+        .find(|b| b.version() == version)
+        .ok_or_else(|| format!("Flowseal {version} не установлен"))?;
+    let rel = format!("lists/{name}");
+    let entry = b
+        .manifest
+        .files
+        .iter()
+        .find(|f| f.path == rel)
+        .ok_or_else(|| format!("в Flowseal {version} нет файла {rel}"))?;
+    if entry.size > MAX_LIST_FILE {
+        return Err(format!("{rel}: файл больше допустимого"));
+    }
+    let data = std::fs::read(b.path_of(&rel)).map_err(|e| format!("{rel}: {e}"))?;
+    b.manifest
+        .verify_file(&rel, &data)
+        .map_err(|e| format!("{rel}: {e}"))?;
+    let start = usize::try_from(offset)
+        .unwrap_or(usize::MAX)
+        .min(data.len());
+    let end = (start + LIST_CHUNK).min(data.len());
+    Ok(Response::BundleList {
+        version: version.into(),
+        name: name.into(),
+        sha256: entry.sha256.clone(),
+        size: data.len() as u64,
+        offset: start as u64,
+        data: base64::engine::general_purpose::STANDARD.encode(&data[start..end]),
+    })
+}
+
 pub fn lock_and_verify(bundle: &Bundle) -> Result<LockedFiles, String> {
     let mut files = Vec::new();
     for rel in ENGINE_FILES {
@@ -485,5 +537,62 @@ mod tests {
         let key = ed25519_dalek::SigningKey::generate(&mut rand_core::OsRng);
         let pk = base64::engine::general_purpose::STANDARD.encode(key.verifying_key().as_bytes());
         (manifest::sign(m, &key), pk)
+    }
+
+    #[test]
+    fn list_files_are_served_verified_in_chunks_and_nothing_else() {
+        use base64::Engine as _;
+        use bridge_core::ipc::{Response, LIST_CHUNK};
+        let t = tempfile::tempdir().unwrap();
+        let big: Vec<u8> = (0..LIST_CHUNK + 1000)
+            .map(|i| b"0123456789\r\n"[i % 12])
+            .collect();
+        let mut files = std_files();
+        files.push(("lists/ipset-all.txt.backup", &big));
+        write_bundle(t.path(), "1.10.5", &files);
+        let all = discover(t.path(), &t.path().join("none"));
+        let mut got = Vec::new();
+        let mut offset = 0;
+        loop {
+            let Response::BundleList {
+                data, size, sha256, ..
+            } = read_bundle_list(&all, "1.10.5", "ipset-all.txt.backup", offset).unwrap()
+            else {
+                panic!("unexpected response")
+            };
+            let chunk = base64::engine::general_purpose::STANDARD
+                .decode(data)
+                .unwrap();
+            assert!(chunk.len() <= LIST_CHUNK);
+            assert_eq!(sha256, sha256_hex(&big));
+            got.extend_from_slice(&chunk);
+            offset = got.len() as u64;
+            if offset >= size || chunk.is_empty() {
+                break;
+            }
+        }
+        assert_eq!(got, big);
+        // Only manifest files under lists/; no traversal; other versions refused.
+        for bad in [
+            "../general.bat",
+            "..\\general.bat",
+            "general.bat",
+            "",
+            ".hidden",
+            "list-exclude.txt",
+        ] {
+            assert!(read_bundle_list(&all, "1.10.5", bad, 0).is_err(), "{bad}");
+        }
+        assert!(read_bundle_list(&all, "9.9.9", "list-general.txt", 0).is_err());
+        // A tampered file is refused.
+        fs::write(
+            t.path()
+                .join("1.10.5")
+                .join("lists")
+                .join("list-general.txt"),
+            b"evil.example\n",
+        )
+        .unwrap();
+        assert!(read_bundle_list(&all, "1.10.5", "list-general.txt", 0).is_err());
     }
 }

@@ -79,7 +79,21 @@ pub enum Request {
         version: String,
     },
     EngineLog,
+    /// Read-only: one list file (`lists/<name>`) of an installed Flowseal
+    /// version, checked against that version's manifest hash. Returned in
+    /// chunks of at most [`LIST_CHUNK`] bytes starting at `offset`.
+    ReadBundleList {
+        version: String,
+        name: String,
+        #[serde(default)]
+        offset: u64,
+    },
 }
+
+/// Largest chunk of a list file in one response (well below [`MAX_MESSAGE`]).
+pub const LIST_CHUNK: usize = 384 * 1024;
+/// Largest list file the helper hands out.
+pub const MAX_LIST_FILE: u64 = 16 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -211,6 +225,17 @@ pub enum Response {
     },
     EngineLog {
         lines: Vec<String>,
+    },
+    /// A chunk of a verified list file (see `Request::ReadBundleList`).
+    BundleList {
+        version: String,
+        name: String,
+        /// SHA-256 of the whole file, as in the bundle manifest.
+        sha256: String,
+        size: u64,
+        offset: u64,
+        /// Base64 of the chunk (the file is passed on byte for byte).
+        data: String,
     },
     Ok,
     /// Strategy was rejected by the helper's own validation.

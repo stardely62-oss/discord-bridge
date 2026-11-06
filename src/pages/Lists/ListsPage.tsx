@@ -10,6 +10,7 @@ import { useActivate } from "../../hooks/useActivate";
 import { api, errorText } from "../../services/api";
 import type { CatalogPack, CatalogView, IpSetStatus, IpsetMode, PackCategory, PackConfirm, PackDiff, PackState, PackView, Settings } from "../../services/types";
 import { useApp, useCount, useTr } from "../../stores/app";
+import { ServiceCard, ServiceDetails } from "./ServiceCards";
 
 type Tab = "catalog" | "mine" | "manual";
 
@@ -538,7 +539,18 @@ function Catalog({ view }: { view: CatalogView }) {
   const [category, setCategory] = useState<PackCategory | "all">("all");
   const [q, setQ] = useState("");
   const [details, setDetails] = useState<string | null>(null);
+  const [service, setService] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
+  const services = useApp((st) => st.services);
+  const loadServices = useApp((st) => st.loadServices);
+  useEffect(() => {
+    loadServices();
+  }, [loadServices, view.serial]);
+  const summary = (id: string) => services?.cards.find((c) => c.id === id);
+  const nameOf = (id: string) => {
+    const p = view.packs.find((v) => v.pack.id === id)?.pack;
+    return p ? loc(p.name, lang) : id;
+  };
   const items = filterPacks(view.packs, q, category, source);
   const cats = presentCategories(view.packs.filter((v) => v.pack.source === source));
   const find = (id: string | null) => view.packs.find((v) => v.pack.id === id) ?? null;
@@ -591,9 +603,13 @@ function Catalog({ view }: { view: CatalogView }) {
         </Card>
       ) : (
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-3 narrow:grid-cols-1">
-          {items.map((v) => (
-            <PackCard key={v.pack.id} view={v} onOpen={() => setDetails(v.pack.id)} onUpdate={() => setUpdating(v.pack.id)} />
-          ))}
+          {items.map((v) =>
+            v.state === "flowseal" ? (
+              <ServiceCard key={v.pack.id} pack={v.pack} icon={<AppIcon name={loc(v.pack.name, lang)} icon={v.pack.icon} />} summary={summary(v.pack.id)} onOpen={() => setService(v.pack.id)} />
+            ) : (
+              <PackCard key={v.pack.id} view={v} onOpen={() => setDetails(v.pack.id)} onUpdate={() => setUpdating(v.pack.id)} />
+            ),
+          )}
         </div>
       )}
       <PackDetails
@@ -605,6 +621,7 @@ function Catalog({ view }: { view: CatalogView }) {
         }}
       />
       <UpdateDialog view={find(updating)} onClose={() => setUpdating(null)} />
+      <ServiceDetails id={service} pack={find(service)?.pack ?? null} names={nameOf} onClose={() => setService(null)} />
     </div>
   );
 }

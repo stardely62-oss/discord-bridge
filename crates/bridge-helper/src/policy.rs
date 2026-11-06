@@ -46,6 +46,7 @@ pub fn is_control(req: &Request) -> bool {
             | Request::Diagnose
             | Request::ListBundles
             | Request::EngineLog
+            | Request::ReadBundleList { .. }
     )
 }
 
@@ -99,6 +100,11 @@ mod tests {
             Request::ListBundles,
             Request::EngineLog,
             Request::Hello { protocol: 2 },
+            Request::ReadBundleList {
+                version: "1.10.4".into(),
+                name: "list-general.txt".into(),
+                offset: 0,
+            },
         ] {
             assert!(authorize(&r, &id("S-1-5-21-2", 2, false), Some(&owner), |_| true).is_ok());
         }
