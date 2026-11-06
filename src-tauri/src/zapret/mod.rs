@@ -22,7 +22,7 @@ use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
-pub use bridge_core::updates::{APP_REPO, FLOWSEAL_REPO, MANIFEST_BASE};
+use bridge_core::updates::MANIFEST_BASE;
 
 #[derive(Debug, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
