@@ -179,7 +179,15 @@ mod tests {
         assert_eq!(s, r"open %USERPROFILE%\AppData\x by <user>");
         let t = redact_with(
             &[],
-            &format!("token {} end", ["MTIzNDU2Nzg5MDEyMzQ1Njc4OTAx", "GaBcDe", "abcdefghijklmnopqrstuvwxyz012345"].join(".")),
+            &format!(
+                "token {} end",
+                [
+                    "MTIzNDU2Nzg5MDEyMzQ1Njc4OTAx",
+                    "GaBcDe",
+                    "abcdefghijklmnopqrstuvwxyz012345"
+                ]
+                .join(".")
+            ),
         );
         assert!(t.contains("<masked>") && !t.contains("GaBcDe"));
     }
