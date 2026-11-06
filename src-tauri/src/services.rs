@@ -80,8 +80,7 @@ async fn from_helper(state: &AppState, version: &str) -> (BTreeMap<String, Strin
     let mut errors = Vec::new();
     'files: for name in NAMES {
         let mut data = Vec::new();
-        let mut want_sha = String::new();
-        loop {
+        let want_sha = loop {
             let req = Request::ReadBundleList {
                 version: version.into(),
                 name: name.to_string(),
@@ -98,11 +97,10 @@ async fn from_helper(state: &AppState, version: &str) -> (BTreeMap<String, Strin
                         errors.push(format!("{name}: повреждённый ответ службы"));
                         continue 'files;
                     };
-                    want_sha = sha256;
                     let done = bytes.is_empty();
                     data.extend_from_slice(&bytes);
                     if data.len() as u64 >= size || done || data.len() > core::MAX_LIST_BYTES {
-                        break;
+                        break sha256;
                     }
                 }
                 Ok(Response::Error { message, .. }) => {
@@ -123,7 +121,7 @@ async fn from_helper(state: &AppState, version: &str) -> (BTreeMap<String, Strin
                     break 'files;
                 }
             }
-        }
+        };
         if sha256_hex(&data) != want_sha {
             errors.push(format!("{name}: SHA-256 не совпадает с манифестом"));
             continue;
