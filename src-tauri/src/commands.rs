@@ -343,6 +343,9 @@ pub(crate) fn external_url(target: &str) -> Option<String> {
             "flowseal-releases" => "https://github.com/Flowseal/zapret-discord-youtube/releases",
             "zapret" => "https://github.com/bol-van/zapret",
             "windivert" => "https://github.com/basil00/WinDivert",
+            // The author's other projects (About page); a fixed GitHub Pages
+            // address of the project account, never taken from the network.
+            "author-projects" => "https://stardely62-oss.github.io/",
             _ => return None,
         }
         .to_string(),
@@ -1257,6 +1260,10 @@ mod list_file_tests {
             Some("https://github.com/Flowseal/zapret-discord-youtube/releases/tag/1.10.5")
         );
         assert!(super::external_url("releases").is_some());
+        assert_eq!(
+            super::external_url("author-projects").as_deref(),
+            Some("https://stardely62-oss.github.io/")
+        );
         for bad in [
             "app-release:0.1.0/../../x",
             "app-release:https://evil.example",
