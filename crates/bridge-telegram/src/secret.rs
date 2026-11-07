@@ -390,9 +390,12 @@ mod tests {
             );
             let t = allowed_trustees(&sddl);
             assert!(!t.is_empty());
+            // SDDL writes well-known accounts as aliases: the built-in
+            // Administrator account (RID 500, the CI runner) appears as "LA".
+            let is_user = |x: &str| x == user || (x == "LA" && user.ends_with("-500"));
             for x in &t {
                 assert!(
-                    x == &user || x == "SY" || x == "BA",
+                    is_user(x) || x == "SY" || x == "BA",
                     "unexpected trustee {x} in {sddl}"
                 );
             }
