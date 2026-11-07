@@ -51,6 +51,12 @@ machine-readable form: `licenses/third-party-sources.json`.
 | `WinDivert64.sys` | `8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2` | same archive (`x64/WinDivert64.sys`), with its original signature | same source as `WinDivert.dll` |
 | `cygwin1.dll` | `103104a52e5293ce418944725df19e2bf81ad9269b9a120d71d39028e821499b` | official Cygwin build of package `cygwin-3.4.10-1` (x86_64), as shipped in zapret v72.9 | https://cygwin.com/cgit/newlib-cygwin/, tag `cygwin-3.4.10`, commit `89a1e4a573d40b233011402f42630b970ff71291` — mirror https://github.com/cygwin/cygwin/tree/cygwin-3.4.10, archive https://github.com/cygwin/cygwin/archive/refs/tags/cygwin-3.4.10.tar.gz |
 
+**Copy kept by this project.** Exact archives of these three sources (the
+upstream tag archives, unmodified, with SHA-256) are published in the release
+[`sources-flowseal-1.10.4`](https://github.com/stardely62-oss/discord-bridge/releases/tag/sources-flowseal-1.10.4) of this repository:
+`WinDivert-2.2.2-source.tar.gz`, `cygwin-3.4.10-source.tar.gz`,
+`zapret-v72.9-source.tar.gz`.
+
 `winws.exe` loads `cygwin1.dll` and `WinDivert.dll` through its Windows import
 table (load-time dynamic linking) from its own directory; `WinDivert.dll`
 installs and opens the `WinDivert64.sys` driver from the same directory. zlib

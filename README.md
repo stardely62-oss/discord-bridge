@@ -15,7 +15,7 @@ Bridge управляет [Flowseal Zapret](https://github.com/Flowseal/zapret-d
 [![Лицензия MIT](https://img.shields.io/github/license/stardely62-oss/discord-bridge?label=%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F)](LICENSE)
 [![CI](https://github.com/stardely62-oss/discord-bridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/stardely62-oss/discord-bridge/actions/workflows/ci.yml)
 
-[**Скачать**](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11) ·
+[**Скачать**](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0) ·
 [Установка](#установка) ·
 [Как это работает](#как-это-работает) ·
 [Документация](#документация) ·
@@ -23,11 +23,11 @@ Bridge управляет [Flowseal Zapret](https://github.com/Flowseal/zapret-d
 
 </div>
 
-> [!WARNING]
-> **Bridge — экспериментальная alpha-версия.** Сборки проходят автоматические проверки
-> в CI на Windows, но полная ручная проверка на обычных компьютерах с блокировками ещё
-> не завершена. Результат зависит от провайдера, сети и выбранной стратегии.
-> Обход не гарантирован.
+> [!NOTE]
+> **Bridge 0.1.0 — первая стабильная версия.** Каждая сборка проходит автоматические
+> проверки в CI на Windows, а основные сценарии проверены вручную на реальном ПК.
+> Но результат зависит от провайдера, сети и выбранной стратегии, поэтому обход не
+> гарантирован.
 
 ## Что такое Bridge
 
@@ -46,24 +46,23 @@ Bridge сам запускает и останавливает их, показ�
 ## Быстрый старт
 
 1. **Скачайте** установщик и файл контрольных сумм последней версии,
-   [Bridge v0.1.0-alpha.11](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11):
-   - [`Bridge_0.1.0-alpha.11_x64-setup.exe`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.0-alpha.11/Bridge_0.1.0-alpha.11_x64-setup.exe)
-   - [`SHA256SUMS.txt`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.0-alpha.11/SHA256SUMS.txt)
+   [Bridge v0.1.0](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0):
+   - [`Bridge_0.1.0_x64-setup.exe`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.0/Bridge_0.1.0_x64-setup.exe)
+   - [`SHA256SUMS.txt`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.0/SHA256SUMS.txt)
 2. **Сверьте SHA-256** (как именно — в разделе [«Установка»](#установка)).
 3. **Установите**: запустите установщик и подтвердите запрос прав администратора.
 4. **Запустите Bridge** из меню «Пуск». Для Discord нажмите «Запустить Discord», для
    Telegram — «Запустить», затем «Подключить Telegram» в карточке Telegram.
 
-Bridge выпускается как prerelease. Все версии есть на странице
-[Releases](https://github.com/stardely62-oss/discord-bridge/releases). Нужны релизы
-с тегом `v…`: релизы `flowseal-…` — это служебные подписанные манифесты для
-обновления Flowseal, а не программа.
+Все версии есть на странице
+[Releases](https://github.com/stardely62-oss/discord-bridge/releases). Программа — это
+релизы с тегом `v…`. Релизы `flowseal-…` (подписанные манифесты для обновления
+Flowseal) и `sources-…` (исходный код сторонних компонентов) — служебные.
 
-### Что важно знать об alpha-версии
+### Что важно знать
 
 - Результат зависит от провайдера и выбранной стратегии. Обход не гарантирован.
-- Работа Telegram WS Proxy с настоящим Telegram Desktop ещё не проверена вручную.
-  Звонки через прокси могут не работать.
+- Звонки Telegram через прокси не проверялись и могут не работать.
 - Установщик не подписан сертификатом: возможны предупреждения Windows, браузера и
   антивирусов (см. [ниже](#почему-могут-появиться-предупреждения)).
 
@@ -138,9 +137,9 @@ flowchart TB
 
 1. Скачайте `Bridge_<версия>_x64-setup.exe` и `SHA256SUMS.txt` из одного и того же
    релиза приложения: последний сейчас —
-   [v0.1.0-alpha.11](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11).
-   Не ориентируйтесь на отметку «Latest» на GitHub: пока Bridge выпускается как
-   prerelease, ею помечен служебный релиз `flowseal-…` без установщика.
+   [v0.1.0](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0).
+   Берите файлы только из релиза с тегом `v…`: в служебных релизах `flowseal-…` и
+   `sources-…` установщика нет.
 2. Проверьте SHA-256 установщика. В PowerShell, в папке со скачанными файлами:
 
    ```powershell
@@ -154,7 +153,7 @@ flowchart TB
 4. Откройте Bridge из меню «Пуск». При первом запуске помощник предложит основные
    настройки.
 
-Обновление ставится поверх прежней версии, в том числе поверх Discord Bridge alpha.10.
+Обновление ставится поверх прежней версии, в том числе поверх Discord Bridge 0.1.0-alpha.10.
 Настройки, стратегии и автозапуск сохраняются.
 
 ### Почему могут появиться предупреждения
@@ -208,10 +207,11 @@ flowchart TB
   иная, а иногда не подходит ни одна.
 - **Звонки Telegram не гарантированы.** Голосовые и видеозвонки идут отдельным
   медиатрафиком и могут не проходить через MTProto-прокси.
-- **Telegram WS Proxy ещё не проверен вручную** с настоящим Telegram Desktop на обычной
-  Windows. Автоматические тесты в CI проходят: запуск, рукопожатие, остановка, занятый
-  порт. Но вход, сообщения, медиа и звонки вручную пока не подтверждены.
-- **Это alpha.** Возможны ошибки. Свои стратегии стоит экспортировать в файл на странице «Стратегии».
+- **Telegram WS Proxy проверен на одном компьютере.** Подключение Telegram Desktop,
+  сообщения и медиа работали; звонки не проверялись. У другого провайдера результат
+  может отличаться.
+- **Возможны ошибки.** Это первая стабильная версия. Свои стратегии стоит
+  экспортировать в файл на странице «Стратегии».
 - **Другие программы могут мешать.** Чужие сборки Zapret, VPN, сетевые фильтры
   антивирусов и прочие программы обхода могут конфликтовать с Bridge. Диагностика
   покажет найденные конфликты. Чужие программы Bridge не останавливает.

@@ -90,5 +90,14 @@
         "note": "The official cygwin-3.4.10-1 source package is no longer on the Cygwin mirrors (they keep current versions only); the tagged commit is the library source of that release."
       }
     }
-  ]
+  ],
+  "sourceCopies": {
+    "release": "https://github.com/stardely62-oss/discord-bridge/releases/tag/sources-flowseal-1.10.4",
+    "files": {
+      "WinDivert-2.2.2-source.tar.gz": "300c1b14e08652e0f8647bf06e9b212f924af76cb2459bd0f88da481c9b08336",
+      "cygwin-3.4.10-source.tar.gz": "fb20c5554320fff4f79ee850fc9579b1896db8cf017a11e4746884d2e46f50d7",
+      "zapret-v72.9-source.tar.gz": "f6f48fde0a93024701e350bee43ae12f14c26b6afacc7eef54c18faa275b3064"
+    },
+    "note": "Unmodified archives of the upstream tags listed below, kept by this project so that the corresponding source stays available."
+  }
 }

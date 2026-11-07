@@ -34,6 +34,15 @@ describe("third-party documentation", () => {
     }
   });
 
+  it("points to the copy of the LGPL sources kept in this repository", () => {
+    const copies = (JSON.parse(read("licenses/third-party-sources.json")) as { sourceCopies: { release: string; files: Record<string, string> } }).sourceCopies;
+    expect(copies.release).toBe(`https://github.com/stardely62-oss/discord-bridge/releases/tag/sources-flowseal-${sources.flowsealVersion}`);
+    expect(Object.keys(copies.files).sort()).toEqual(["WinDivert-2.2.2-source.tar.gz", "cygwin-3.4.10-source.tar.gz", "zapret-v72.9-source.tar.gz"]);
+    for (const h of Object.values(copies.files)) expect(h).toMatch(/^[0-9a-f]{64}$/);
+    expect(read("THIRD_PARTY_NOTICES.md")).toContain(copies.release);
+    expect(read("licenses/Cygwin-LICENSE.txt")).toContain(copies.release);
+  });
+
   it("ships the LGPL texts and the Cygwin linking exception", () => {
     for (const f of ["LGPL-3.0.txt", "GPL-3.0.txt", "GPL-2.0.txt", "WinDivert-LICENSE.txt", "Cygwin-LICENSE.txt", "zapret-LICENSE.txt", "Flowseal-LICENSE.txt"]) {
       expect(fs.existsSync(path.join(root, "licenses", f)), f).toBe(true);
