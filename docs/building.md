@@ -16,6 +16,17 @@ Copy-Item target/release/discord-bridge-helper.exe src-tauri/binaries/discord-br
 pnpm tauri build                       # NSIS-установщик в target/release/bundle/nsis/
 ```
 
+`pnpm tauri build` перед сборкой приложения запускает `node scripts/third-party-licenses.mjs`.
+Скрипт собирает лицензии Rust-крейтов и npm-пакетов, которые входят в приложение, в
+`resources/third-party/` (в установке это `licenses/third-party/`). Если у пакета нет
+лицензии или она не из списка разрешённых, сборка останавливается. Для `cargo clippy`
+и тестов `src-tauri` эта папка тоже должна существовать: запустите скрипт после
+`pnpm build`.
+
+При обновлении Flowseal обновите `licenses/third-party-sources.json` и таблицу в
+`THIRD_PARTY_NOTICES.md` (хеши, версии, ссылки на исходники). Иначе проверка
+установщика в CI не пройдёт.
+
 Для разработки UI: `pnpm tauri dev`. Обход DPI в dev-режиме работать не будет: служба
 принимает только `discord-bridge.exe` из каталога установки.
 

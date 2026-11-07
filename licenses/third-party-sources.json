@@ -1,0 +1,94 @@
+{
+  "about": "Provenance and corresponding source of the third-party binaries shipped unmodified in the Bridge installer (flowseal/<version>/bin). Checked in CI: the installed files must have exactly these SHA-256 values. Human-readable version: THIRD_PARTY_NOTICES.md.",
+  "flowsealVersion": "1.10.4",
+  "binaryOrigin": {
+    "archive": "https://github.com/bol-van/zapret/releases/download/v72.9/zapret-v72.9.zip",
+    "path": "zapret-v72.9/binaries/windows-x86_64/",
+    "note": "The four engine files of Flowseal 1.10.4 are byte-identical to the files at this path of the official zapret v72.9 release (and to its sha256sum.txt)."
+  },
+  "components": [
+    {
+      "name": "winws",
+      "file": "bin/winws.exe",
+      "sha256": "affb4f69d2ea302a7abccd5325d81826e140ddae014f1e070bc4a6c0dd555188",
+      "version": "v72.9",
+      "copyright": "Copyright (c) 2016-2024 bol-van",
+      "license": "MIT",
+      "licenseFiles": [
+        "licenses/zapret-LICENSE.txt"
+      ],
+      "source": {
+        "repository": "https://github.com/bol-van/zapret",
+        "tag": "v72.9",
+        "commit": "c849e55ef0f1c244206f5a05ff7b1ab41a3824ee",
+        "archive": "https://github.com/bol-van/zapret/archive/refs/tags/v72.9.tar.gz",
+        "buildInstructions": "docs/windows.md and nfq/Makefile in that source (built with Cygwin)"
+      },
+      "links": "cygwin1.dll and WinDivert.dll through the Windows import table (load-time dynamic linking); zlib is linked statically (zlib license, from the Cygwin build environment)"
+    },
+    {
+      "name": "WinDivert (user-mode library)",
+      "file": "bin/WinDivert.dll",
+      "sha256": "c1e060ee19444a259b2162f8af0f3fe8c4428a1c6f694dce20de194ac8d7d9a2",
+      "version": "2.2.2",
+      "copyright": "Copyright (C) Basil 2011-2022 (version resource of WinDivert64.sys 2.2)",
+      "license": "LGPL-3.0-only OR GPL-2.0-only (distributed by Bridge under LGPL-3.0)",
+      "licenseFiles": [
+        "licenses/WinDivert-LICENSE.txt",
+        "licenses/LGPL-3.0.txt",
+        "licenses/GPL-3.0.txt",
+        "licenses/GPL-2.0.txt"
+      ],
+      "upstreamBinary": "https://github.com/basil00/WinDivert/releases/download/v2.2.2/WinDivert-2.2.2-A.zip (x64/WinDivert.dll, byte-identical)",
+      "source": {
+        "repository": "https://github.com/basil00/WinDivert",
+        "tag": "v2.2.2",
+        "commit": "1789526ecfb9ff5397c94f9f54c1a3dc2fb60440",
+        "archive": "https://github.com/basil00/WinDivert/archive/refs/tags/v2.2.2.tar.gz",
+        "buildInstructions": "msvc-build.bat / wddk-build.bat in that source"
+      }
+    },
+    {
+      "name": "WinDivert (kernel driver)",
+      "file": "bin/WinDivert64.sys",
+      "sha256": "8da085332782708d8767bcace5327a6ec7283c17cfb85e40b03cd2323a90ddc2",
+      "version": "2.2.2",
+      "copyright": "Copyright (C) Basil 2011-2022 (version resource of WinDivert64.sys 2.2)",
+      "license": "LGPL-3.0-only OR GPL-2.0-only (distributed by Bridge under LGPL-3.0)",
+      "licenseFiles": [
+        "licenses/WinDivert-LICENSE.txt",
+        "licenses/LGPL-3.0.txt",
+        "licenses/GPL-3.0.txt",
+        "licenses/GPL-2.0.txt"
+      ],
+      "upstreamBinary": "https://github.com/basil00/WinDivert/releases/download/v2.2.2/WinDivert-2.2.2-A.zip (x64/WinDivert64.sys, byte-identical, with its original signature; Bridge does not re-sign or modify it)",
+      "source": {
+        "repository": "https://github.com/basil00/WinDivert",
+        "tag": "v2.2.2",
+        "commit": "1789526ecfb9ff5397c94f9f54c1a3dc2fb60440",
+        "archive": "https://github.com/basil00/WinDivert/archive/refs/tags/v2.2.2.tar.gz"
+      }
+    },
+    {
+      "name": "Cygwin DLL",
+      "file": "bin/cygwin1.dll",
+      "sha256": "103104a52e5293ce418944725df19e2bf81ad9269b9a120d71d39028e821499b",
+      "version": "3.4.10 (package cygwin-3.4.10-1, x86_64, official Cygwin build)",
+      "copyright": "Copyright (C) Cygwin Authors 1996-2023 (Red Hat and contributors)",
+      "license": "LGPL-3.0-or-later with the Cygwin Linking Exception",
+      "licenseFiles": [
+        "licenses/Cygwin-LICENSE.txt",
+        "licenses/LGPL-3.0.txt",
+        "licenses/GPL-3.0.txt"
+      ],
+      "source": {
+        "repository": "https://cygwin.com/cgit/newlib-cygwin/",
+        "tag": "cygwin-3.4.10",
+        "commit": "89a1e4a573d40b233011402f42630b970ff71291",
+        "mirror": "https://github.com/cygwin/cygwin/tree/cygwin-3.4.10",
+        "archive": "https://github.com/cygwin/cygwin/archive/refs/tags/cygwin-3.4.10.tar.gz",
+        "note": "The official cygwin-3.4.10-1 source package is no longer on the Cygwin mirrors (they keep current versions only); the tagged commit is the library source of that release."
+      }
+    }
+  ]
+}

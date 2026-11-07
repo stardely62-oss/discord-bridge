@@ -68,7 +68,7 @@ $tgManifest = Get-Content "resources/tg-ws-proxy/tg-ws-proxy.json" -Raw | Conver
 $tg = FindOne $out "discord-bridge-tg-ws-proxy.exe"
 if ((Sha $tg) -ne (Sha $tgBuilt) -or (Sha $tg) -ne $tgManifest.sha256) { throw "discord-bridge-tg-ws-proxy.exe in the installer differs from the build" }
 $tgDir = Split-Path $tg -Parent
-foreach ($f in @("tg-ws-proxy.json", "tg-ws-proxy-LICENSE.txt", "licenses/Python-LICENSE.txt", "licenses/cryptography", "licenses/certifi")) {
+foreach ($f in @("tg-ws-proxy.json", "tg-ws-proxy-LICENSE.txt", "licenses/Python-LICENSE.txt", "licenses/cryptography", "licenses/certifi", "licenses/pyinstaller")) {
   if (-not (Test-Path (Join-Path $tgDir $f))) { throw "tg-ws-proxy/$f missing in the installer" }
 }
 Write-Host "ok  Telegram WS Proxy $($tgManifest.version) ($($tgManifest.upstreamCommit.Substring(0,7))): $($tgManifest.size) bytes, sha256 $($tgManifest.sha256), licenses present"
@@ -77,5 +77,43 @@ foreach ($name in @("LICENSE", "THIRD_PARTY_NOTICES.md", "WinDivert-LICENSE.txt"
   if (-not (Get-ChildItem -LiteralPath $out -Recurse -File | Where-Object { $_.Name -eq $name })) { throw "$name missing in the installer" }
   Write-Host "ok  $name present"
 }
+
+# Every license file of the repository's licenses/ directory is installed,
+# unchanged (the license texts of Flowseal, zapret, WinDivert, Cygwin, the
+# GNU licenses and the provenance list of the engine binaries).
+$licDir = (FindOne $out "WinDivert-LICENSE.txt").Directory.FullName
+foreach ($f in Get-ChildItem licenses -File) {
+  $p = Join-Path $licDir $f.Name
+  if (-not (Test-Path -LiteralPath $p)) { throw "licenses/$($f.Name) missing in the installer" }
+  if ((Sha $p) -ne (Sha $f.FullName)) { throw "licenses/$($f.Name) in the installer differs from the repository" }
+}
+Write-Host "ok  licenses/: $((Get-ChildItem licenses -File).Count) files installed unchanged"
+
+# The engine binaries are exactly the ones whose origin and corresponding
+# source are documented (licenses/third-party-sources.json): a Flowseal
+# update with different binaries fails here until the documentation follows.
+$src = Get-Content licenses/third-party-sources.json -Raw | ConvertFrom-Json
+if ($src.flowsealVersion -ne $lock.version) { throw "third-party-sources.json documents Flowseal $($src.flowsealVersion), the build ships $($lock.version)" }
+$notices = Get-Content THIRD_PARTY_NOTICES.md -Raw
+foreach ($c in $src.components) {
+  $p = Join-Path $m.Directory.FullName ($c.file -replace '/', '\')
+  if ((Sha $p) -ne $c.sha256) { throw "$($c.file): SHA-256 differs from third-party-sources.json" }
+  foreach ($lf in $c.licenseFiles) { if (-not (Test-Path (Join-Path $licDir (Split-Path $lf -Leaf)))) { throw "$lf missing for $($c.file)" } }
+  if (-not $notices.Contains($c.sha256) -or -not $notices.Contains($c.source.commit)) { throw "THIRD_PARTY_NOTICES.md does not document $($c.file) (hash and source commit)" }
+}
+Write-Host "ok  engine binaries match their documented origin and source ($($src.components.Count) files)"
+
+# Notices of the Rust crates and npm packages compiled into the app.
+$third = Join-Path $licDir "third-party"
+foreach ($f in @("THIRD_PARTY_LICENSES.txt", "packages.json")) {
+  $p = Join-Path $third $f
+  if (-not (Test-Path -LiteralPath $p)) { throw "licenses/third-party/$f missing in the installer" }
+  if ((Sha $p) -ne (Sha "resources/third-party/$f")) { throw "licenses/third-party/$f differs from this build" }
+}
+$pk = (Get-Content (Join-Path $third "packages.json") -Raw | ConvertFrom-Json).packages
+foreach ($must in @("tauri", "react", "serde", "tokio")) {
+  if (-not ($pk | Where-Object { $_.name -eq $must })) { throw "licenses/third-party/packages.json does not list $must" }
+}
+Write-Host "ok  licenses/third-party: notices of $($pk.Count) Rust crates and npm packages"
 Remove-Item -LiteralPath $out -Recurse -Force
 exit 0
