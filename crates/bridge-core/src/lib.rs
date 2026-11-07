@@ -1,4 +1,4 @@
-//! Platform-independent core of Discord Bridge.
+//! Platform-independent core of Bridge.
 //!
 //! Everything here is pure logic that can be unit-tested on any OS:
 //! the strategy schema, the safe BAT importer (it never executes anything),

@@ -1,8 +1,8 @@
-"""Headless runner of Flowseal tg-ws-proxy for Discord Bridge.
+"""Headless runner of Flowseal tg-ws-proxy for Bridge.
 
 Runs the unmodified network engine of tg-ws-proxy (package ``proxy`` of the
 pinned upstream commit, see UPSTREAM.md) without the tray, GUI, updater or
-clipboard code of the official Windows build. Discord Bridge (Rust) owns the
+clipboard code of the official Windows build. Bridge (Rust) owns the
 process:
 
 * configuration, including the MTProto secret, arrives as ONE JSON line on
@@ -63,7 +63,7 @@ def _domain_list(value: Any, field: str) -> List[str]:
 
 
 def parse_config(line: str) -> Dict[str, Any]:
-    """Validate the JSON configuration sent by Discord Bridge."""
+    """Validate the JSON configuration sent by Bridge."""
     try:
         raw = json.loads(line)
     except ValueError as exc:

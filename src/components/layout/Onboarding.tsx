@@ -114,7 +114,7 @@ export function Onboarding() {
     <Modal
       open
       onClose={() => !running && finish(true)}
-      title={tr("Добро пожаловать в Discord Bridge", "Welcome to Discord Bridge")}
+      title={tr("Добро пожаловать в Bridge", "Welcome to Bridge")}
       footer={
         result ? (
           <>

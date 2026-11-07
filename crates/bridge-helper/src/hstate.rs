@@ -15,9 +15,9 @@ use std::path::Path;
 #[serde(rename_all = "camelCase", default)]
 pub struct HelperState {
     pub active_bundle: Option<String>,
-    /// TCP timestamps value before Discord Bridge changed it the first time.
+    /// TCP timestamps value before Bridge changed it the first time.
     pub tcp_original: Option<bool>,
-    /// Value Discord Bridge set (to detect later changes by others).
+    /// Value Bridge set (to detect later changes by others).
     pub tcp_we_set: Option<bool>,
 }
 
@@ -36,7 +36,7 @@ impl HelperState {
     }
 }
 
-/// True if Discord Bridge changed TCP timestamps and the value is still ours.
+/// True if Bridge changed TCP timestamps and the value is still ours.
 pub fn tcp_changed_by_us(state_file: &Path, current: Option<bool>) -> bool {
     let st = HelperState::load(state_file);
     matches!((st.tcp_we_set, current), (Some(w), Some(c)) if w == c)
@@ -56,7 +56,7 @@ pub fn tcp_restore(
         st.tcp_we_set = None;
     };
     match decision {
-        Ok(None) => Ok("Discord Bridge эту настройку не менял".into()),
+        Ok(None) => Ok("Bridge эту настройку не менял".into()),
         Ok(Some(v)) => {
             set(v)?;
             forget(&mut st);

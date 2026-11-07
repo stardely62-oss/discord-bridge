@@ -71,7 +71,7 @@ pub enum Request {
     EndTrial {
         commit: bool,
     },
-    /// Restore TCP timestamps to the value recorded before Discord Bridge
+    /// Restore TCP timestamps to the value recorded before Bridge
     /// changed it (only if the current value is still the one we set).
     RestoreTcpTimestamps,
     /// Switch the active bundle (used for rollback).

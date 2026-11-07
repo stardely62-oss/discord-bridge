@@ -4,7 +4,7 @@ labels: [bug]
 body:
   - type: input
     id: version
-    attributes: { label: Версия Discord Bridge, placeholder: 0.1.0-alpha.1 }
+    attributes: { label: Версия Bridge, placeholder: 0.1.0-alpha.1 }
     validations: { required: true }
   - type: input
     id: strategy

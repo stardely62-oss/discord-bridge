@@ -350,7 +350,7 @@ function StatusLadder({ view }: { view: PackView }) {
       rows.push({ ok: st === "applied", text: st === "applied" ? tr("IP набора используются работающим обходом", "The set's IPs are used by the running bypass") : tr("IP набора сейчас не используются обходом — см. подсказку на карточке", "The set's IPs are not used by the bypass now — see the card note") });
     }
   }
-  rows.push({ ok: null, text: tr("Доступность сервиса Discord Bridge не проверял", "Discord Bridge has not checked the service's availability") });
+  rows.push({ ok: null, text: tr("Доступность сервиса Bridge не проверял", "Bridge has not checked the service's availability") });
   return (
     <ul className="space-y-1.5">
       {rows.map((r, i) => (

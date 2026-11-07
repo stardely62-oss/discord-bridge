@@ -25,7 +25,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { Button, Card, Modal, Select, Skeleton } from "../../components/ui";
+import { Button, Card, Modal, Select, Skeleton, Switch } from "../../components/ui";
 import { installedTitle, loc, ownEntries } from "../../catalog/apps";
 import { strategyKind } from "../../catalog/strategies";
 import { useActivate, useAuto, useLaunch } from "../../hooks/useActivate";
@@ -161,7 +161,7 @@ function DiscordHero() {
     : busy || checking
       ? { level: "busy", pill: tr("Проверка", "Checking"), title: tr("Идёт проверка", "Checking"), text: tr("Запускаем обход и проверяем, открывается ли Discord.", "Starting the bypass and checking that Discord opens.") }
       : !helperOk
-        ? { level: "bad", pill: tr("Служба не отвечает", "No service"), title: tr("Служба не отвечает", "The service is not responding"), text: tr("Обход работает через системную службу Discord Bridge. Обычно помогает переустановка приложения.", "The bypass runs in the Discord Bridge system service. Reinstalling the app usually helps.") }
+        ? { level: "bad", pill: tr("Служба не отвечает", "No service"), title: tr("Служба не отвечает", "The service is not responding"), text: tr("Обход работает через системную службу Bridge. Обычно помогает переустановка приложения.", "The bypass runs in the Bridge system service. Reinstalling the app usually helps.") }
         : failed
           ? { level: "bad", pill: tr("Ошибка", "Error"), title: tr("Ошибка подключения", "Connection error"), text: engine?.lastError || tr("Обход остановился. Попробуйте подобрать другой способ.", "The bypass stopped. Try finding another method.") }
           : running && acc.level === "bad"
@@ -346,10 +346,12 @@ function ZapretCard() {
 }
 
 /** Telegram WS Proxy: a local MTProto proxy (Flowseal tg-ws-proxy engine) run
- * by Discord Bridge as its own process, independent of Zapret. The state comes
+ * by Bridge as its own process, independent of Zapret. The state comes
  * from the real process; nothing claims that Telegram, media or calls work. */
 function TelegramCard() {
-  const { telegram, setTelegram, toast, openSettings } = useApp();
+  const { telegram, setTelegram, toast, openSettings, overview, refresh } = useApp();
+  const reduce = useReducedMotion();
+  const [more, setMore] = useState(false);
   const tr = useTr();
   const [busy, setBusy] = useState<string | null>(null);
   const [diag, setDiag] = useState<TelegramDiagItem[] | null>(null);
@@ -390,78 +392,91 @@ function TelegramCard() {
       toast("ok", tr("Ссылка скопирована. В ней секрет прокси — не публикуйте её", "Link copied. It contains the proxy secret — do not share it"));
     });
   const diagnostics = () => run("diag", async () => setDiag(await api.telegramDiagnostics()));
+  // The same setting as Settings → Telegram Proxy (telegramProxy.autostart).
+  const autostart = overview?.settings.telegramProxy?.autostart ?? false;
+  const setAutostart = (on: boolean) =>
+    run("autostart", async () => {
+      const cur = await api.getSettings();
+      await api.saveSettings({ ...cur, telegramProxy: { ...cur.telegramProxy, autostart: on } });
+      await refresh();
+      setTelegram(await api.telegramGet());
+    });
   return (
-    <Card className="flex flex-col p-5">
-      <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2aabee]/15 text-[#2aabee]">
-          <Send className="h-[18px] w-[18px]" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">Telegram</div>
-          <div className="text-xs text-ink-faint">WS Proxy · MTProto</div>
+    <Card className="flex flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2aabee]/15 text-[#2aabee]">
+            <Send className="h-[18px] w-[18px]" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-semibold">Telegram</div>
+            <div className="text-xs text-ink-faint">WS Proxy · MTProto</div>
+          </div>
+          <Pill level={label.level}>{label.text}</Pill>
         </div>
-        <Pill level={label.level}>{label.text}</Pill>
+        <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
+          {tr("Локальный прокси для Telegram Desktop. Работает отдельно от Zapret: каждый можно включать и выключать независимо.", "A local proxy for Telegram Desktop. Independent of Zapret: each can be turned on and off separately.")}
+        </p>
+        {st?.lastError && (st.state === "error" || st.state === "notInstalled") && <div className="selectable mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{st.lastError}</div>}
+        {v?.component.problem && <div className="mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{v.component.problem}</div>}
+        {v?.pendingRestart && (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+            <span className="flex-1">{portNote(v, tr) ?? tr("Настройки изменены — перезапустите прокси", "Settings changed — restart the proxy")}</span>
+          </div>
+        )}
+        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+          {can.includes("start") && (
+            <Button size="sm" variant="primary" icon={<Play className="h-3.5 w-3.5" />} loading={busy === "start"} disabled={!!busy} onClick={start}>
+              {tr("Запустить", "Start")}
+            </Button>
+          )}
+          {can.includes("connect") && (
+            <Button size="sm" variant="primary" icon={<Send className="h-3.5 w-3.5" />} loading={busy === "connect"} disabled={!!busy} onClick={connect}>
+              {tr("Подключить Telegram", "Connect Telegram")}
+            </Button>
+          )}
+          {can.includes("stop") && (
+            <Button size="sm" icon={<Square className="h-3.5 w-3.5" />} loading={busy === "stop"} disabled={!!busy} onClick={stop}>
+              {tr("Остановить", "Stop")}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" aria-expanded={more} aria-controls="telegram-more" onClick={() => setMore(!more)} icon={<ChevronDown className={`h-4 w-4 transition-transform ${more ? "rotate-180" : ""}`} />}>
+            {tr("Ещё", "More")}
+          </Button>
+        </div>
       </div>
-      <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
-        {tr("Локальный прокси для Telegram Desktop. Работает отдельно от Zapret: каждый можно включать и выключать независимо.", "A local proxy for Telegram Desktop. Independent of Zapret: each can be turned on and off separately.")}
-      </p>
-      {v && (
-        <div className="mt-3 divide-y divide-line">
-          <Stat label={tr("Адрес", "Address")}>
-            127.0.0.1:{v.connectionPort}
-          </Stat>
-          <Stat label={tr("Маршрут", "Route")}>{routeText(v, tr)}</Stat>
-          <Stat label={tr("Клиент", "Client")}>{clientText(v, tr)}</Stat>
-          <Stat label={tr("Версия", "Version")}>{v.component.installed ? `tg-ws-proxy ${v.component.version}` : tr("не установлен", "not installed")}</Stat>
-        </div>
-      )}
-      {st?.lastError && (st.state === "error" || st.state === "notInstalled") && (
-        <div className="selectable mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{st.lastError}</div>
-      )}
-      {v?.component.problem && <div className="mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{v.component.problem}</div>}
-      {v?.pendingRestart && (
-        <div className="mt-3 flex items-center gap-2 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">
-          <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">{portNote(v, tr) ?? tr("Настройки изменены — перезапустите прокси", "Settings changed — restart the proxy")}</span>
-        </div>
-      )}
-      <div className="mt-auto flex flex-wrap gap-2 pt-4">
-        {can.includes("start") && (
-          <Button size="sm" variant="primary" icon={<Play className="h-3.5 w-3.5" />} loading={busy === "start"} disabled={!!busy} onClick={start}>
-            {tr("Запустить", "Start")}
-          </Button>
+
+      <AnimatePresence initial={false}>
+        {more && (
+          <motion.div
+            id="telegram-more"
+            initial={reduce ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={reduce ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+            className="relative overflow-hidden border-t border-line bg-surface-2/40"
+          >
+            {v && (
+              <div className="divide-y divide-line px-5 pt-2">
+                <Stat label={tr("Адрес", "Address")}>127.0.0.1:{v.connectionPort}</Stat>
+                <Stat label={tr("Маршрут", "Route")}>{routeText(v, tr)}</Stat>
+                <Stat label={tr("Клиент", "Client")}>{clientText(v, tr)}</Stat>
+                <Stat label={tr("Версия", "Version")}>{v.component.installed ? `tg-ws-proxy ${v.component.version}` : tr("не установлен", "not installed")}</Stat>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 p-3 narrow:grid-cols-1">
+              {can.includes("restart") && <ActionRow icon={<RotateCw className="h-4 w-4" />} title={tr("Перезапустить", "Restart")} hint={tr("Применить изменённые настройки", "Apply changed settings")} onClick={restart} disabled={!!busy} />}
+              {can.includes("copyLink") && <ActionRow icon={<Copy className="h-4 w-4" />} title={tr("Копировать ссылку", "Copy link")} hint={tr("Содержит секрет — не публикуйте", "Contains the secret — do not share")} onClick={copyLink} disabled={!!busy} />}
+              {can.includes("diagnostics") && <ActionRow icon={<Activity className="h-4 w-4" />} title={tr("Диагностика", "Diagnostics")} hint={tr("Процесс, порт, клиент, маршрут", "Process, port, client, route")} onClick={diagnostics} disabled={!!busy} />}
+              {can.includes("settings") && <ActionRow icon={<SettingsIcon className="h-4 w-4" />} title={tr("Настройки", "Settings")} hint={tr("Порт, резервный маршрут, секрет", "Port, fallback route, secret")} onClick={() => openSettings("telegram")} />}
+              <ActionRow icon={<Power className="h-4 w-4" />} title={tr("Запускать вместе с Bridge", "Start with Bridge")} hint={tr("Не зависит от автовключения обхода", "Independent of the bypass autostart")}>
+                <Switch label={tr("Запускать Telegram Proxy вместе с Bridge", "Start Telegram Proxy with Bridge")} checked={autostart} disabled={busy === "autostart" || !v?.component.installed} onChange={setAutostart} />
+              </ActionRow>
+            </div>
+          </motion.div>
         )}
-        {can.includes("connect") && (
-          <Button size="sm" variant="primary" icon={<Send className="h-3.5 w-3.5" />} loading={busy === "connect"} disabled={!!busy} onClick={connect}>
-            {tr("Подключить Telegram", "Connect Telegram")}
-          </Button>
-        )}
-        {can.includes("stop") && (
-          <Button size="sm" icon={<Square className="h-3.5 w-3.5" />} loading={busy === "stop"} disabled={!!busy} onClick={stop}>
-            {tr("Остановить", "Stop")}
-          </Button>
-        )}
-        {can.includes("restart") && (
-          <Button size="sm" variant="ghost" icon={<RotateCw className="h-3.5 w-3.5" />} loading={busy === "restart"} disabled={!!busy} onClick={restart}>
-            {tr("Перезапустить", "Restart")}
-          </Button>
-        )}
-        {can.includes("copyLink") && (
-          <Button size="sm" variant="ghost" icon={<Copy className="h-3.5 w-3.5" />} disabled={!!busy} onClick={copyLink}>
-            {tr("Копировать ссылку", "Copy link")}
-          </Button>
-        )}
-        {can.includes("diagnostics") && (
-          <Button size="sm" variant="ghost" icon={<Activity className="h-3.5 w-3.5" />} loading={busy === "diag"} disabled={!!busy} onClick={diagnostics}>
-            {tr("Диагностика", "Diagnostics")}
-          </Button>
-        )}
-        {can.includes("settings") && (
-          <Button size="sm" variant="ghost" icon={<SettingsIcon className="h-3.5 w-3.5" />} onClick={() => openSettings("telegram")}>
-            {tr("Настройки", "Settings")}
-          </Button>
-        )}
-      </div>
+      </AnimatePresence>
       <Modal open={diag !== null} onClose={() => setDiag(null)} title={tr("Диагностика Telegram Proxy", "Telegram Proxy diagnostics")}>
         <ul className="space-y-2.5">
           {(diag ?? []).map((d) => (

@@ -57,7 +57,7 @@ impl TelegramRuntime {
     pub fn start(&self, s: &TelegramProxySettings) -> R<()> {
         let c = self.component().map_err(|p| match p {
             ComponentProblem::NotInstalled => {
-                "Telegram Proxy не входит в эту установку Discord Bridge".to_string()
+                "Telegram Proxy не входит в эту установку Bridge".to_string()
             }
             ComponentProblem::Damaged(m) => format!("компонент Telegram Proxy повреждён: {m}"),
         })?;
@@ -321,10 +321,7 @@ pub async fn telegram_diagnostics(app: AppHandle, state: State<'_, AppState>) ->
             "process",
             "ok",
             "Процесс Telegram Proxy",
-            format!(
-                "запущен Discord Bridge (PID {})",
-                st.pid.unwrap_or_default()
-            ),
+            format!("запущен Bridge (PID {})", st.pid.unwrap_or_default()),
         )
     } else if st.state == ProxyState::NotInstalled {
         item(
@@ -374,7 +371,7 @@ pub async fn telegram_diagnostics(app: AppHandle, state: State<'_, AppState>) ->
             "owner",
             "ok",
             "Владелец порта",
-            "порт слушает процесс, запущенный Discord Bridge",
+            "порт слушает процесс, запущенный Bridge",
         ),
         Some(false) => item(
             "owner",

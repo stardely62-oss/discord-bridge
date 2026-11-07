@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Discord Bridge",
+  "productName": "Bridge",
   "mainBinaryName": "discord-bridge",
   "version": "0.1.0-alpha.10",
   "identifier": "io.github.stardely62.discordbridge",
@@ -15,7 +15,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Discord Bridge",
+        "title": "Bridge",
         "width": 1100,
         "height": 720,
         "minWidth": 880,
@@ -36,11 +36,11 @@
     "targets": [
       "nsis"
     ],
-    "publisher": "Discord Bridge contributors",
+    "publisher": "Bridge contributors",
     "copyright": "MIT License. Flowseal, zapret (bol-van) and WinDivert are distributed under their own licenses.",
     "category": "Utility",
     "shortDescription": "Лаунчер Discord с управлением Flowseal Zapret",
-    "longDescription": "Discord Bridge запускает официальный клиент Discord и управляет встроенным Flowseal Zapret (winws) через ограниченную системную службу. Не является продуктом Discord Inc.",
+    "longDescription": "Bridge запускает официальный клиент Discord и управляет встроенным Flowseal Zapret (winws) через ограниченную системную службу. Не является продуктом Discord Inc.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -72,7 +72,7 @@
         "displayLanguageSelector": false,
         "installerHooks": "./windows/hooks.nsh",
         "installerIcon": "icons/icon.ico",
-        "startMenuFolder": "Discord Bridge"
+        "startMenuFolder": "Bridge"
       }
     }
   },

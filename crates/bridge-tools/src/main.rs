@@ -1,4 +1,4 @@
-//! Build-time tools for Discord Bridge.
+//! Build-time tools for Bridge.
 //!
 //! bridge-tools bundle <lock.json> <archive.zip> <out-dir>
 //!     Verifies the archive against the pinned SHA-256 in the lock file,

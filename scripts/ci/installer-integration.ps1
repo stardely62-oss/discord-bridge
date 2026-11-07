@@ -4,7 +4,21 @@
 # version (hashes equal the source bundle) — never a mix.
 param([Parameter(Mandatory)][string]$Setup, [string]$Previous, [string]$Bundle = "resources/flowseal/1.10.4")
 $ErrorActionPreference = 'Stop'
-$inst = Join-Path $env:ProgramFiles 'Discord Bridge'
+# The install folder comes from the uninstall entry: the product is "Bridge"
+# (fresh installs: Program Files\Bridge); up to 0.1.0-alpha.10 it was
+# "Discord Bridge", and an upgrade keeps that folder.
+$uninstRoot = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall'
+function InstDir {
+  foreach ($k in @('Bridge', 'Discord Bridge')) {
+    $p = Join-Path $uninstRoot $k
+    if (Test-Path $p) { return ((Get-ItemProperty $p).InstallLocation).Trim('"') }
+  }
+  return $null
+}
+$inst = Join-Path $env:ProgramFiles 'Bridge'
+$runKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+$startMenu = Join-Path $env:ProgramData 'Microsoft\Windows\Start Menu\Programs'
+$publicDesktop = Join-Path $env:PUBLIC 'Desktop'
 $ver = Split-Path $Bundle -Leaf
 $fails = New-Object System.Collections.Generic.List[string]
 function Check($ok, $msg) { if ($ok) { Write-Host "  ok   $msg" } else { Write-Host "  FAIL $msg"; $fails.Add($msg) } }
@@ -32,10 +46,27 @@ function LegacyDriverLoad {
 if ($Previous) {
   Write-Host "== 1. previous release installed, legacy driver load, upgrade to the new build"
   Check ((Run $Previous @('/S')) -eq 0) "previous release installs"
-  Check ((ServiceState) -eq 'Running') "previous helper running"
+  $oldInst = InstDir
+  $inst = $oldInst
+  Check ((ServiceState) -eq 'Running') "previous helper running ($oldInst)"
+  # Autostart as the previous version stores it (enabled by the user).
+  New-ItemProperty -Path $runKey -Name 'Discord Bridge' -Value "`"$oldInst\discord-bridge.exe`" --minimized" -PropertyType String -Force | Out-Null
   LegacyDriverLoad
   $code = Run $Setup @('/S')
   Check ($code -eq 0) "upgrade succeeds (exit $code)"
+  $inst = InstDir
+  Write-Host "== 1a. product renamed to Bridge: one installation, one set of shortcuts, autostart kept"
+  Check ($inst -eq $oldInst) "upgrade keeps the existing folder ($inst)"
+  Check (-not (Test-Path (Join-Path $uninstRoot 'Discord Bridge'))) "old uninstall entry removed"
+  $entry = Get-ItemProperty (Join-Path $uninstRoot 'Bridge') -ErrorAction SilentlyContinue
+  Check ($entry -and $entry.DisplayName -eq 'Bridge' -and $entry.InstallLocation.Trim('"') -eq $oldInst) "one uninstall entry: Bridge"
+  Check (-not (Test-Path (Join-Path $startMenu 'Discord Bridge\Discord Bridge.lnk')) -and -not (Test-Path (Join-Path $startMenu 'Discord Bridge.lnk'))) "no old Start menu shortcut"
+  Check (-not (Test-Path (Join-Path $publicDesktop 'Discord Bridge.lnk'))) "no old desktop shortcut"
+  $lnks = @(Get-ChildItem $startMenu -Recurse -Filter *.lnk -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'Bridge' })
+  Check ($lnks.Count -eq 1 -and $lnks[0].Name -eq 'Bridge.lnk') "exactly one Start menu shortcut: $($lnks.Name -join ', ')"
+  $run = (Get-ItemProperty $runKey -ErrorAction SilentlyContinue).'Discord Bridge'
+  Check ($run -eq "`"$inst\discord-bridge.exe`" --minimized" -and (Test-Path "$inst\discord-bridge.exe")) "autostart entry still valid after the upgrade"
+  Check ((Get-Item "$inst\discord-bridge.exe").VersionInfo.FileDescription -eq 'Bridge') "the program describes itself as Bridge"
   Check ((BundleIntact) -eq 'ok') "Flowseal files are exactly the new bundle ($(BundleIntact))"
   Check ((ServiceState) -eq 'Running') "new helper running"
 }
@@ -43,6 +74,7 @@ else {
   Write-Host "== 1. clean install"
   $code = Run $Setup @('/S')
   Check ($code -eq 0) "clean install (exit $code)"
+  $inst = InstDir
   Check ((BundleIntact) -eq 'ok') "Flowseal files intact"
   Check ((ServiceState) -eq 'Running') "helper running"
 }
@@ -152,11 +184,15 @@ Write-Host "== 5. uninstall"
 $code = Run "$inst\uninstall.exe" @('/S', "_?=$inst")
 Check ($code -eq 0) "uninstall (exit $code)"
 Check ((ServiceState) -eq 'absent') "service removed"
+Check ($null -eq (Get-ItemProperty $runKey -ErrorAction SilentlyContinue).'Discord Bridge') "autostart entry removed with the program"
+Check (-not (Test-Path (Join-Path $uninstRoot 'Bridge')) -and -not (Test-Path (Join-Path $uninstRoot 'Discord Bridge'))) "no uninstall entry left"
 
 if ($Previous) {
   Write-Host "== 6. clean install of the new build after uninstall"
   $code = Run $Setup @('/S')
   Check ($code -eq 0) "clean install (exit $code)"
+  $inst = InstDir
+  Check ($inst -eq (Join-Path $env:ProgramFiles 'Bridge')) "fresh install goes to Program Files\Bridge ($inst)"
   Check ((BundleIntact) -eq 'ok') "Flowseal files intact"
   Check ((ServiceState) -eq 'Running') "helper running"
   $code = Run "$inst\uninstall.exe" @('/S', "_?=$inst")

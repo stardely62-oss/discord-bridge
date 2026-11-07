@@ -12,7 +12,7 @@ const view = (app?: Partial<UpdateInfo>, flowseal?: Partial<UpdateInfo>): Update
 const none = new Set<string>();
 
 describe("update notices", () => {
-  it("a newer Discord Bridge gives one notice with its exact release", () => {
+  it("a newer Bridge gives one notice with its exact release", () => {
     const v = view({ status: "available", newer: true, latest: "0.1.0-alpha.11", url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11" });
     expect(noticesFor(v, none)).toEqual([{ key: "app:0.1.0-alpha.11", kind: "app", version: "0.1.0-alpha.11" }]);
     expect(appReleaseTarget(v.app)).toBe("app-release:0.1.0-alpha.11");

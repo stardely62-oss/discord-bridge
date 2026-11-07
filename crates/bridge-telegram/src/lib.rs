@@ -1,6 +1,6 @@
-//! Telegram WS Proxy for Discord Bridge.
+//! Telegram WS Proxy for Bridge.
 //!
-//! Discord Bridge runs Flowseal's tg-ws-proxy network engine (Python, built
+//! Bridge runs Flowseal's tg-ws-proxy network engine (Python, built
 //! headless from a pinned upstream commit, see `telegram-proxy/`) as an
 //! ordinary child process of the user — independent of Zapret, WinWS and the
 //! privileged helper service:

@@ -22,7 +22,7 @@ pub enum HelperError {
     Untrusted,
     #[error("служба отклонила подключение: {0}")]
     Unauthorized(String),
-    #[error("версии приложения и службы не совпадают — переустановите Discord Bridge ({0})")]
+    #[error("версии приложения и службы не совпадают — переустановите Bridge ({0})")]
     Protocol(String),
     #[error("не удалось установить связь со службой: {0}")]
     Handshake(String),

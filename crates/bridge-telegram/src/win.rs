@@ -33,7 +33,7 @@ unsafe impl Sync for Job {}
 
 impl Job {
     /// A job whose processes all end when its last handle closes — also when
-    /// Discord Bridge crashes.
+    /// Bridge crashes.
     pub fn new() -> io::Result<Job> {
         unsafe {
             let h = CreateJobObjectW(null(), null());

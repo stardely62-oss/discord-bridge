@@ -230,8 +230,8 @@ export function StrategyView({ id, specs, resources }: { id: string; specs: Opti
               </Badge>
               <Tooltip
                 text={tr(
-                  "Стратегии нужны TCP timestamps Windows. Оригинальный Flowseal включает их сам, Discord Bridge — только с вашего согласия (Настройки → Обход).",
-                  "This strategy needs Windows TCP timestamps. Flowseal enables them itself; Discord Bridge only with your consent (Settings → Bypass).",
+                  "Стратегии нужны TCP timestamps Windows. Оригинальный Flowseal включает их сам, Bridge — только с вашего согласия (Настройки → Обход).",
+                  "This strategy needs Windows TCP timestamps. Flowseal enables them itself; Bridge only with your consent (Settings → Bypass).",
                 )}
               />
             </span>

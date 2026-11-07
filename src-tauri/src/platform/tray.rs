@@ -31,28 +31,28 @@ fn texts(lang: &str) -> Texts {
             choose: "Choose strategy",
             on: "DPI bypass: on",
             off: "DPI bypass: off",
-            open: "Open Discord Bridge",
+            open: "Open Bridge",
             launch: "Launch Discord",
             enable: "Turn on DPI bypass",
             disable: "Turn off DPI bypass",
             diagnostics: "Open diagnostics",
             quit: "Quit",
-            tip_on: "Discord Bridge — DPI bypass on",
-            tip_off: "Discord Bridge — DPI bypass off",
+            tip_on: "Bridge — DPI bypass on",
+            tip_off: "Bridge — DPI bypass off",
         }
     } else {
         Texts {
             choose: "Выбрать стратегию",
             on: "Обход DPI: включён",
             off: "Обход DPI: выключен",
-            open: "Открыть Discord Bridge",
+            open: "Открыть Bridge",
             launch: "Запустить Discord",
             enable: "Включить обход DPI",
             disable: "Выключить обход DPI",
             diagnostics: "Открыть диагностику",
             quit: "Выход",
-            tip_on: "Discord Bridge — обход DPI включён",
-            tip_off: "Discord Bridge — обход DPI выключен",
+            tip_on: "Bridge — обход DPI включён",
+            tip_off: "Bridge — обход DPI выключен",
         }
     }
 }
@@ -67,10 +67,7 @@ fn update_hint(v: &bridge_updates::UpdatesView, lang: &str) -> Option<String> {
         .as_ref()
         .filter(|a| a.status == UpdateStatus::Available)
     {
-        parts.push(format!(
-            "Discord Bridge {}",
-            a.latest.as_deref().unwrap_or("?")
-        ));
+        parts.push(format!("Bridge {}", a.latest.as_deref().unwrap_or("?")));
     }
     if let Some(f) = v
         .flowseal
@@ -178,7 +175,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let mut b = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .tooltip("Discord Bridge");
+        .tooltip("Bridge");
     if let Some(icon) = state_icon(false).or_else(|| app.default_window_icon().cloned()) {
         b = b.icon(icon);
     }

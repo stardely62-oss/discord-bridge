@@ -1,5 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
-# PyInstaller spec of the headless tg-ws-proxy engine for Discord Bridge.
+# PyInstaller spec of the headless tg-ws-proxy engine for Bridge.
 # Built by build.ps1 with TGPROXY_UPSTREAM pointing at the pinned upstream
 # checkout. Only the network engine (package `proxy`) is bundled: no tray,
 # no GUI, no updater, no clipboard.
@@ -39,7 +39,7 @@ exe = EXE(
     debug=False,
     strip=False,
     upx=False,
-    # Console subsystem for real stdin/stdout pipes; Discord Bridge starts it
+    # Console subsystem for real stdin/stdout pipes; Bridge starts it
     # with CREATE_NO_WINDOW, so no window appears.
     console=True,
     disable_windowed_traceback=True,

@@ -255,7 +255,7 @@ impl ProxyManager {
                 let r = fail(
                     &mut g,
                     "addressInUse",
-                    format!("порт {} уже занят другой программой — выберите другой порт; Discord Bridge её не останавливает", settings.port),
+                    format!("порт {} уже занят другой программой — выберите другой порт; Bridge её не останавливает", settings.port),
                 );
                 drop(g);
                 (self.notify)();
@@ -320,7 +320,7 @@ impl ProxyManager {
                 let r = fail(
                     &mut g,
                     "spawn",
-                    format!("процесс не помещён под контроль Discord Bridge: {e}"),
+                    format!("процесс не помещён под контроль Bridge: {e}"),
                 );
                 drop(g);
                 (self.notify)();

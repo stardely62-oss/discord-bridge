@@ -1,6 +1,6 @@
 # Third-party notices
 
-Discord Bridge (MIT) bundles the following unmodified third-party components
+Bridge (MIT) bundles the following unmodified third-party components
 in its Windows installer. Their authorship and licenses are retained.
 
 | Component | Version | Author | License | Source |
@@ -36,7 +36,7 @@ Full license texts are installed in the `licenses/` directory:
 WinDivert and Cygwin are used as separate, dynamically loaded binaries that
 are distributed exactly as published by their authors. Corresponding source
 code is available from the upstream projects listed above. You may replace
-these files with your own builds; note that Discord Bridge verifies hashes of
+these files with your own builds; note that Bridge verifies hashes of
 engine files before starting them, so replacing them requires a bundle with a
 matching manifest.
 
@@ -45,12 +45,12 @@ matching manifest.
 `discord-bridge-tg-ws-proxy.exe` is the network engine of
 [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) 1.11.4
 (commit `2085861957070eeea07990a522b29f42e5230210`, © 2026 Flowseal, MIT),
-packaged headless with PyInstaller by the Discord Bridge CI from that exact
+packaged headless with PyInstaller by the Bridge CI from that exact
 commit. Only the package `proxy` of upstream is included, unmodified; the
-tray, GUI, updater and clipboard parts are not. The Discord Bridge runner
+tray, GUI, updater and clipboard parts are not. The Bridge runner
 (`telegram-proxy/tgproxy_headless.py`, MIT) reads the configuration from
 stdin and reports status as JSON lines. Its SHA-256 is listed in
-`tg-ws-proxy/tg-ws-proxy.json` and compiled into Discord Bridge.
+`tg-ws-proxy/tg-ws-proxy.json` and compiled into Bridge.
 
 Bundled inside the executable, each under its own license (texts in
 `tg-ws-proxy/licenses/`):
@@ -76,5 +76,5 @@ BSD). See `Cargo.lock` and `pnpm-lock.yaml` for the exact versions.
 
 ## Trademarks
 
-Discord is a trademark of Discord Inc. Discord Bridge is an independent
+Discord is a trademark of Discord Inc. Bridge is an independent
 project and is not affiliated with, endorsed or sponsored by Discord Inc.

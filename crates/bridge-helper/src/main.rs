@@ -1,4 +1,4 @@
-//! Discord Bridge privileged helper.
+//! Bridge privileged helper.
 //!
 //! Runs as the `DiscordBridgeHelper` Windows service (LocalSystem) and exposes
 //! a fixed set of operations over a local named pipe to the unprivileged UI.
@@ -31,7 +31,7 @@ fn main() {
         // Exit codes: 0 stopped, 3 service did not stop, 4 our winws still runs.
         Some("--uninstall-service") => service::uninstall().map(|o| report(&o)),
         Some("--stop-engine") => Ok(report(&service::stop_service())),
-        // Uninstaller: exit code 10 if Discord Bridge changed TCP timestamps
+        // Uninstaller: exit code 10 if Bridge changed TCP timestamps
         // and the value is still the one it set.
         Some("--tcp-changed") => Ok(if service::tcp_changed_by_us() { 10 } else { 0 }),
         Some("--restore-tcp") => service::restore_tcp().map(|_| 0),

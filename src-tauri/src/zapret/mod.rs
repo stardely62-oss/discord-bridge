@@ -601,7 +601,7 @@ pub async fn install_flowseal(state: &AppState, version: &str) -> Result<(), Str
     }
     if !versions::app_satisfies(env!("CARGO_PKG_VERSION"), &m.min_app_version)? {
         return Err(format!(
-            "эта версия Flowseal требует Discord Bridge {} или новее",
+            "эта версия Flowseal требует Bridge {} или новее",
             m.min_app_version
         ));
     }

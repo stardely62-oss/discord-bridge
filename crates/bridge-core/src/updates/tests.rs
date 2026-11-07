@@ -19,7 +19,7 @@ fn pre(tag: &str) -> Release {
     }
 }
 
-// ---------------- Discord Bridge ----------------
+// ---------------- Bridge ----------------
 
 #[test]
 fn a_newer_alpha_is_offered_with_its_exact_release_page() {
@@ -251,7 +251,7 @@ fn a_manifest_that_does_not_verify_or_does_not_fit_is_refused() {
         ),
         (
             signed_bytes(&manifest_for("1.10.5", "0.1.0-alpha.11"), &k),
-            "требует Discord Bridge 0.1.0-alpha.11",
+            "требует Bridge 0.1.0-alpha.11",
         ),
         (b"not json".to_vec(), "повреждён"),
         (vec![b' '; MAX_MANIFEST_BYTES + 1], "слишком большой"),

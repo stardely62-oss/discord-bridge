@@ -1,4 +1,4 @@
-//! Discord Bridge application entry point.
+//! Bridge application entry point.
 
 mod catalog_sync;
 mod commands;
@@ -24,15 +24,24 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{Emitter, Manager, WindowEvent};
 
+/// Name of the HKCU Run value (see the autostart plugin above).
+pub const AUTOSTART_VALUE_NAME: &str = "Discord Bridge";
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             platform::tray::show_main(app);
         }))
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--minimized"]),
-        ))
+        // The Run value keeps its pre-rename name ("Discord Bridge" up to
+        // 0.1.0-alpha.10): an internal identifier, so an existing autostart
+        // keeps working after the upgrade without any migration. Windows
+        // shows the program's file description ("Bridge") in Startup apps.
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name(AUTOSTART_VALUE_NAME)
+                .args(["--minimized"])
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -82,7 +91,7 @@ pub fn run() {
             };
             app.manage(state);
             platform::tray::create(&handle)?;
-            tracing::info!("Discord Bridge {} started", env!("CARGO_PKG_VERSION"));
+            tracing::info!("Bridge {} started", env!("CARGO_PKG_VERSION"));
 
             if !start_minimized {
                 platform::tray::show_main(&handle);
@@ -290,6 +299,6 @@ pub fn run() {
             telegram::telegram_diagnostics,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Discord Bridge")
+        .expect("error while building Bridge")
         .run(|_app, _event| {});
 }

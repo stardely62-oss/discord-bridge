@@ -160,7 +160,7 @@ jobs:
           Get-Content dist-release/SHA256SUMS.txt
           $lock = Get-Content resources/flowseal.lock.json -Raw | ConvertFrom-Json
           $notes = @(
-            "## Discord Bridge $env:TAG", "",
+            "## Bridge $env:TAG", "",
             "**Техническая alpha-сборка.** Не является подтверждённым решением блокировки.", "",
             "| Компонент | Версия |", "|---|---|",
             "| Flowseal zapret-discord-youtube | $($lock.version) (архив SHA-256 ``$($lock.sha256)``) |",
@@ -223,4 +223,4 @@ jobs:
             echo "::error::release $TAG already exists — published releases are never replaced"; exit 1
           fi
           gh release create "$TAG" *.exe SHA256SUMS.txt -R "$GITHUB_REPOSITORY" --verify-tag \
-            --title "Discord Bridge $TAG" --notes-file notes.md $pre
+            --title "Bridge $TAG" --notes-file notes.md $pre

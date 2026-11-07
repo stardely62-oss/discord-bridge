@@ -39,7 +39,7 @@ function ImportPane({ onImport }: { onImport: () => void }) {
         <div className="text-xs text-ink-faint">{tr("Перед сохранением вы увидите, что именно будет импортировано.", "You will see exactly what is imported before saving.")}</div>
       </Card>
       <div className="grid grid-cols-2 gap-4 narrow:grid-cols-1">
-        <Point icon={<ShieldCheck className="h-4 w-4" />} title={tr("Файл не выполняется", "The file is never run")} text={tr("Команды из BAT только читаются: Discord Bridge берёт из них параметры winws.", "BAT commands are only read: Discord Bridge takes winws options from them.")} />
+        <Point icon={<ShieldCheck className="h-4 w-4" />} title={tr("Файл не выполняется", "The file is never run")} text={tr("Команды из BAT только читаются: Bridge берёт из них параметры winws.", "BAT commands are only read: Bridge takes winws options from them.")} />
         <Point icon={<Lock className="h-4 w-4" />} title={tr("Только ресурсы Flowseal", "Only Flowseal resources")} text={tr("Пути к файлам вне ресурсов Flowseal отклоняются.", "Paths outside Flowseal resources are rejected.")} />
         <Point icon={<FileCode2 className="h-4 w-4" />} title={tr("Проверка перед запуском", "Checked before running")} text={tr("Стратегию с ошибками можно сохранить как черновик и исправить в редакторе.", "A strategy with errors can be saved as a draft and fixed in the editor.")} />
         <Point icon={<Layers className="h-4 w-4" />} title={tr("Попадает в «Мои»", "Goes to “Mine”")} text={tr("После импорта стратегию можно редактировать, дублировать и экспортировать.", "After import you can edit, duplicate and export it.")} />

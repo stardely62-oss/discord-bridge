@@ -112,7 +112,7 @@ async fn from_helper(state: &AppState, version: &str) -> (BTreeMap<String, Strin
                 }
                 Ok(_) => {
                     errors.push(format!(
-                        "{name}: служба не поддерживает чтение списков (обновите Discord Bridge)"
+                        "{name}: служба не поддерживает чтение списков (обновите Bridge)"
                     ));
                     break 'files;
                 }

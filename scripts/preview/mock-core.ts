@@ -67,7 +67,7 @@ const diag = {
     { id: "helper", group: "zapret", title: "Служба Discord Bridge Helper", status: "ok", detail: "служба отвечает" },
     { id: "engine", group: "zapret", title: "Zapret (winws)", status: "ok", detail: "запущен, PID 8812, стратегия «general (ALT2)»" },
     { id: "flowseal", group: "zapret", title: "Компоненты Flowseal", status: "ok", detail: "версия 1.10.4, целостность подтверждена (SHA-256)" },
-    { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "warning", detail: "выключены, а активная стратегия использует fooling=ts", hint: "Flowseal включает их автоматически; Discord Bridge — только с вашего согласия." },
+    { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "warning", detail: "выключены, а активная стратегия использует fooling=ts", hint: "Flowseal включает их автоматически; Bridge — только с вашего согласия." },
     { id: "bfe", group: "system", title: "Base Filtering Engine", status: "ok", detail: "служба запущена" },
     { id: "conflicts", group: "system", title: "Конфликты", status: "ok", detail: "других движков обхода DPI не обнаружено" },
     ...["discord.com", "gateway.discord.gg", "cdn.discordapp.com", "updates.discord.com"].flatMap((h, i) => [
@@ -113,7 +113,7 @@ const tgView = (next?: string) => {
       clientsActive: connected ? 6 : 0, relaysActive: connected ? 6 : 0, relayed: connected ? 9 : 0, dataFromTelegram: connected,
       stats: connected ? { ...tgZero, connections_total: 9, connections_active: 6, connections_ws: 9, bytes_up: 182000, bytes_down: 2400000, relays_active: 6, relays_total: 9 } : tgZero,
       fallbackCfproxy: false, errorCode: tgState === "error" ? "addressInUse" : null,
-      lastError: tgState === "error" ? "порт 1443 уже занят другой программой — выберите другой порт; Discord Bridge её не останавливает" : null,
+      lastError: tgState === "error" ? "порт 1443 уже занят другой программой — выберите другой порт; Bridge её не останавливает" : null,
     },
     component: tgState === "notInstalled" ? { installed: false } : { installed: true, version: "1.11.4", upstreamCommit: "2085861957070eeea07990a522b29f42e5230210" },
     settings: settings.telegramProxy,
@@ -122,9 +122,9 @@ const tgView = (next?: string) => {
   };
 };
 const tgDiag = () => [
-  { id: "process", status: "ok", title: "Процесс Telegram Proxy", detail: "запущен Discord Bridge (PID 4242)" },
+  { id: "process", status: "ok", title: "Процесс Telegram Proxy", detail: "запущен Bridge (PID 4242)" },
   { id: "port", status: "ok", title: "Локальный порт", detail: "127.0.0.1:1443 принимает подключения" },
-  { id: "owner", status: "ok", title: "Владелец порта", detail: "порт слушает процесс, запущенный Discord Bridge" },
+  { id: "owner", status: "ok", title: "Владелец порта", detail: "порт слушает процесс, запущенный Bridge" },
   { id: "client", status: "unknown", title: "Подключение Telegram", detail: "клиент не подключён или ещё не проверено" },
   { id: "data", status: "unknown", title: "Обмен данными с Telegram", detail: "не проверено (нет подтверждённой передачи)" },
   { id: "transport", status: "unknown", title: "Использованный маршрут", detail: "не проверено (соединений ещё не было)" },
@@ -184,7 +184,7 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   get_resources: () => ({ fakes: ["ACTIVE_DISCORD_UDP.bin", "stun.bin", "tls_clienthello_www_google_com.bin", "quic_initial_www_google_com.bin"], lists: ["list-general.txt", "list-google.txt", "list-exclude.txt", "ipset-all.txt"] }),
   run_diagnostics: () => diag,
   diagnostics_history: () => [diag],
-  get_logs: () => ["2026-11-05T10:01:12Z INFO Discord Bridge 0.1.0-alpha.2 started", "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
+  get_logs: () => ["2026-11-05T10:01:12Z INFO Bridge 0.1.0-alpha.2 started", "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
   engine_log: () => ["winws v72.9", "windivert initialized. capture is started."],
   get_settings: () => settings,
   save_settings: (a) => Object.assign(settings, a.settings),
@@ -203,7 +203,7 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   // Preview only: example results (no real releases are implied).
   updates_get: () => ({
     app: { status: "available", current: "0.1.0-alpha.10", latest: "0.1.0-alpha.11", newer: true, installable: false, url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11", changelog: "Пример заметок к релизу (превью).", checkedAt: Math.floor(Date.now() / 1000) },
-    flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Discord Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
+    flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
     checkingApp: false,
     checkingFlowseal: false,
   }),

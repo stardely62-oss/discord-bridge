@@ -440,7 +440,7 @@ export default function SettingsPage() {
               }
               description={
                 tcp
-                  ? `${tr("Сейчас", "Now")}: ${tcp.current == null ? tr("неизвестно", "unknown") : tcp.current ? tr("включены", "on") : tr("выключены", "off")}${tcp.changedByUs ? tr(" · изменено Discord Bridge", " · changed by Discord Bridge") : ""}`
+                  ? `${tr("Сейчас", "Now")}: ${tcp.current == null ? tr("неизвестно", "unknown") : tcp.current ? tr("включены", "on") : tr("выключены", "off")}${tcp.changedByUs ? tr(" · изменено Bridge", " · changed by Bridge") : ""}`
                   : tr("Нужны стратегиям с fooling=ts. Меняется только с вашего согласия.", "Needed by fooling=ts strategies. Changed only with your consent.")
               }
             >
@@ -467,13 +467,13 @@ export default function SettingsPage() {
           <Section title={tr("Автоматические проверки", "Automatic checks")}>
             <SettingRow
               title={tr("Автоматически проверять обновления при запуске", "Check for updates automatically at startup")}
-              description={tr("Проверять новые версии Discord Bridge и Flowseal при запуске приложения. Загрузка и установка обновлений выполняются только с вашего согласия.", "Check for new Discord Bridge and Flowseal versions when the app starts. Updates are downloaded and installed only with your consent.")}
+              description={tr("Проверять новые версии Bridge и Flowseal при запуске приложения. Загрузка и установка обновлений выполняются только с вашего согласия.", "Check for new Bridge and Flowseal versions when the app starts. Updates are downloaded and installed only with your consent.")}
             >
               <Switch label="check-updates-on-start" checked={s.checkUpdatesOnStart} onChange={(v) => set("checkUpdatesOnStart", v)} />
             </SettingRow>
           </Section>
 
-          <Section title="Discord Bridge">
+          <Section title="Bridge">
             <Facts
               rows={[
                 [tr("Установлена", "Installed"), overview?.appVersion ?? "—"],
@@ -676,7 +676,7 @@ function TelegramSettings({ settings, save, saving }: { settings: Settings; save
       </Section>
       <Section title={tr("Запуск", "Startup")}>
         <SettingRow
-          title={tr("Запускать прокси вместе с Discord Bridge", "Start the proxy with Discord Bridge")}
+          title={tr("Запускать прокси вместе с Bridge", "Start the proxy with Bridge")}
           description={tr("Не зависит от автовключения обхода. Настройка «Останавливать обход при выходе» на прокси не влияет: при полном выходе из программы прокси останавливается всегда, при сворачивании в трей — продолжает работать.", "Independent of the bypass autostart. “Stop the bypass on exit” does not affect the proxy: a full exit always stops it; closing to the tray keeps it running.")}
         >
           <Switch label="telegram-autostart" checked={t.autostart} disabled={saving} onChange={(v) => upd({ autostart: v })} />

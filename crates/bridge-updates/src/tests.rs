@@ -149,7 +149,7 @@ fn signed_manifest(version: &str, min_app: &str) -> Vec<u8> {
     serde_json::to_vec(&sign(&m, &key().0)).unwrap()
 }
 
-// ---------------- Discord Bridge ----------------
+// ---------------- Bridge ----------------
 
 #[tokio::test]
 async fn a_newer_app_release_is_found_with_its_exact_page() {

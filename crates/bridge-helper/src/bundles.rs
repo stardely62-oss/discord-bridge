@@ -92,7 +92,7 @@ impl Bundle {
     }
 }
 
-/// A bundle requires at least `min_app_version` of Discord Bridge (SemVer).
+/// A bundle requires at least `min_app_version` of Bridge (SemVer).
 pub fn check_app_compat(m: &BundleManifest) -> Result<(), String> {
     check_app_compat_with(m, env!("CARGO_PKG_VERSION"))
 }
@@ -101,7 +101,7 @@ pub fn check_app_compat_with(m: &BundleManifest, app: &str) -> Result<(), String
     match bridge_core::versions::app_satisfies(app, &m.min_app_version) {
         Ok(true) => Ok(()),
         Ok(false) => Err(format!(
-            "Flowseal {} требует Discord Bridge {} или новее (установлена {app})",
+            "Flowseal {} требует Bridge {} или новее (установлена {app})",
             m.flowseal_version, m.min_app_version
         )),
         Err(e) => Err(format!("некорректное поле minAppVersion: {e}")),

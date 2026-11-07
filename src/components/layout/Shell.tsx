@@ -50,7 +50,7 @@ export function Sidebar() {
         </span>
         <div className="narrow:hidden">
           <div className="text-[13px] font-semibold leading-tight tracking-[-0.01em]">
-            Discord <span className="text-accent">Bridge</span>
+            <span className="text-accent">Bridge</span>
           </div>
           <div className="text-[11px] text-ink-faint">{overview?.appVersion ?? ""}</div>
         </div>
@@ -112,7 +112,7 @@ export function UpdateNotices() {
     switch (n.kind) {
       case "app":
         return {
-          title: tr(`Доступна новая версия Discord Bridge — ${n.version}`, `A new Discord Bridge version is available — ${n.version}`),
+          title: tr(`Доступна новая версия Bridge — ${n.version}`, `A new Bridge version is available — ${n.version}`),
           body: tr("Установка вручную: скачайте установщик со страницы релиза.", "Install it manually from the release page."),
         };
       case "flowsealReady":
@@ -122,7 +122,7 @@ export function UpdateNotices() {
         };
       case "flowsealUnavailable":
         return {
-          title: tr(`Вышел Flowseal ${n.version}, но его пакет ещё не проверен для Discord Bridge`, `Flowseal ${n.version} is out, but its package is not verified for Discord Bridge yet`),
+          title: tr(`Вышел Flowseal ${n.version}, но его пакет ещё не проверен для Bridge`, `Flowseal ${n.version} is out, but its package is not verified for Bridge yet`),
           body: tr("Нужен подписанный манифест, опубликованный нашим проектом. Пока его нет, установить эту версию нельзя — текущая продолжает работать.", "A signed manifest published by this project is required. Until then this version cannot be installed; the current one keeps working."),
         };
     }

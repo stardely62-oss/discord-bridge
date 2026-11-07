@@ -2,7 +2,7 @@
 //! and its manifest `tg-ws-proxy.json` (written by `telegram-proxy/build.ps1`).
 //!
 //! The executable is used only if its SHA-256 equals the hash compiled into
-//! Discord Bridge at build time (from the same build) and the manifest. The
+//! Bridge at build time (from the same build) and the manifest. The
 //! check is repeated right before every start.
 
 use crate::{EXE_NAME, MANIFEST_NAME};
@@ -70,7 +70,7 @@ impl Component {
     pub fn verify(&self, expected: &str) -> Result<(), ComponentProblem> {
         let damaged = |m: &str| Err(ComponentProblem::Damaged(m.into()));
         if !self.manifest.sha256.eq_ignore_ascii_case(expected) {
-            return damaged("файл описания не соответствует этой сборке Discord Bridge");
+            return damaged("файл описания не соответствует этой сборке Bridge");
         }
         let meta =
             std::fs::metadata(&self.exe).map_err(|e| ComponentProblem::Damaged(e.to_string()))?;

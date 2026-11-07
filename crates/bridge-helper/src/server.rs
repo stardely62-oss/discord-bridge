@@ -175,7 +175,7 @@ impl Helper {
         let Some(bundle) = self.active_bundle() else {
             return err(
                 "no_bundle",
-                "компоненты Flowseal не найдены — переустановите Discord Bridge",
+                "компоненты Flowseal не найдены — переустановите Bridge",
             );
         };
         let report = validate(strategy, Some(&bundle.resource_index()));
@@ -405,7 +405,7 @@ impl Helper {
                 if protocol != PROTOCOL_VERSION {
                     return err(
                         "protocol",
-                        "версии приложения и службы не совпадают — переустановите Discord Bridge",
+                        "версии приложения и службы не совпадают — переустановите Bridge",
                     );
                 }
                 self.handshakes.fetch_add(1, Ordering::Relaxed);
@@ -652,10 +652,7 @@ fn serve_client(helper: &Helper, file: &mut File, raw: HANDLE) {
         && process_image(pid).is_some_and(|img| same_path(&img, &helper.paths.client_exe()));
     if !image_ok {
         warn!("rejected pipe client pid {pid} ({:?})", process_image(pid));
-        let _ = ipc::write_frame(
-            file,
-            &err("unauthorized", "клиент не является Discord Bridge"),
-        );
+        let _ = ipc::write_frame(file, &err("unauthorized", "клиент не является Bridge"));
         return;
     }
     let client = match client_identity(raw) {

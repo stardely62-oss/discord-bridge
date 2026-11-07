@@ -2,14 +2,14 @@
 //!
 //! The app asks GitHub two independent questions:
 //!
-//! * **Discord Bridge.** Which app release (tag `v<SemVer>`) is the newest?
+//! * **Bridge.** Which app release (tag `v<SemVer>`) is the newest?
 //!   Only tags of the exact form `v<SemVer>` count; drafts and other tags
 //!   (`flowseal-*`, `catalog-*`) are ignored. The newest is chosen by SemVer,
 //!   never by date, and an older release is never offered (no downgrade). A
 //!   stable installation is offered only stable releases; a pre-release
 //!   installation is offered newer pre-releases and stable releases.
 //! * **Flowseal.** Is the latest official Flowseal release newer than the
-//!   active one, and can Discord Bridge install it? Installable means: a
+//!   active one, and can Bridge install it? Installable means: a
 //!   signed manifest for exactly that version is published by this project,
 //!   its Ed25519 signature verifies with a pinned key and it allows this app
 //!   version. An official release alone is *not* installable.
@@ -141,7 +141,7 @@ pub fn evaluate_app(current: &str, releases: &[Release], now: u64) -> UpdateInfo
     let Some((v, r)) = best else {
         return UpdateInfo::failed(
             Some(current.into()),
-            "на GitHub не найдено ни одного релиза Discord Bridge",
+            "на GitHub не найдено ни одного релиза Bridge",
             now,
         );
     };
@@ -238,7 +238,7 @@ pub fn apply_manifest(
         ManifestFetch::NotFound => {
             return unavailable(
                 info,
-                format!("Вышел Flowseal {version}, но его пакет ещё не проверен для Discord Bridge: нужен подписанный манифест, опубликованный проектом."),
+                format!("Вышел Flowseal {version}, но его пакет ещё не проверен для Bridge: нужен подписанный манифест, опубликованный проектом."),
             )
         }
         ManifestFetch::Failed(e) => {
@@ -289,7 +289,7 @@ pub fn apply_manifest(
         Ok(false) => unavailable(
             info,
             format!(
-                "Flowseal {version} требует Discord Bridge {} или новее — сначала обновите приложение",
+                "Flowseal {version} требует Bridge {} или новее — сначала обновите приложение",
                 m.min_app_version
             ),
         ),

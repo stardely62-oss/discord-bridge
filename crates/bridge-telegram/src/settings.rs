@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct TelegramProxySettings {
-    /// Start the proxy when Discord Bridge starts (independent of the bypass).
+    /// Start the proxy when Bridge starts (independent of the bypass).
     pub autostart: bool,
     pub port: u16,
     /// Use Cloudflare relays (CfProxy) when a direct WebSocket to Telegram

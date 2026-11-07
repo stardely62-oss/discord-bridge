@@ -1,6 +1,6 @@
 # Telegram WS Proxy (headless tg-ws-proxy)
 
-Discord Bridge runs the network engine of
+Bridge runs the network engine of
 [Flowseal/tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy) as a local
 MTProto proxy for Telegram Desktop. It is a separate component from Zapret.
 
@@ -15,13 +15,13 @@ MTProto proxy for Telegram Desktop. It is a separate component from Zapret.
 | What is not | `windows.py`, `macos.py`, `linux.py`, `ui/`, `utils/` (tray, GUI, updater, clipboard, autostart) |
 
 The official Windows build is a GUI program with its own tray and updater.
-That build is not used here: Discord Bridge has one tray, and updates of this
-component go through Discord Bridge.
+That build is not used here: Bridge has one tray, and updates of this
+component go through Bridge.
 
 ## How it runs
 
 ```
-Discord Bridge (Rust, bridge_telegram)            discord-bridge-tg-ws-proxy.exe
+Bridge (Rust, bridge_telegram)            discord-bridge-tg-ws-proxy.exe
   verify SHA-256 (compiled in + manifest) ──┐
   CreateProcess(suspended, no window) ──────┼──▶ PyInstaller bootloader ─▶ Python
   Job Object (kill on close), resume ───────┘        tgproxy_headless.py
@@ -62,7 +62,7 @@ Three behaviours differ from the upstream program, all covered by tests:
    `requirements-runtime.txt` + `requirements-build.txt` (every wheel pinned
    by SHA-256; no dependency resolution from the index).
 4. PyInstaller one-file console executable (`headless.spec`); GUI modules
-   excluded. Discord Bridge starts it with `CREATE_NO_WINDOW`.
+   excluded. Bridge starts it with `CREATE_NO_WINDOW`.
 5. `--self-test`: the engine imports, and no GUI/tray module
    (`tkinter`, `customtkinter`, `pystray`, `PIL`, `pyperclip`, `psutil`, `ui`,
    `utils.tray_common`) is loaded.
@@ -71,7 +71,7 @@ Three behaviours differ from the upstream program, all covered by tests:
    - `tg-ws-proxy.json` — version, commit, SHA-256, size;
    - the license texts of upstream, Python and every runtime package.
 
-`src-tauri/build.rs` compiles the executable's SHA-256 into Discord Bridge.
+`src-tauri/build.rs` compiles the executable's SHA-256 into Bridge.
 The app starts only that exact file, and checks it again before every start.
 A local build without step 6 reports the component as not installed. Run
 `./telegram-proxy/build.ps1` on Windows before `pnpm tauri build`.
@@ -103,7 +103,7 @@ There is no separate auto-update yet. A new version means:
 1. bump `upstream.lock.json`;
 2. review the upstream diff;
 3. run the tests;
-4. release Discord Bridge.
+4. release Bridge.
 
 A later separate channel would need its own signing key (not the Flowseal or
 catalog keys) and the same verification before start.

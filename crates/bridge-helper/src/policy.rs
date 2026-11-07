@@ -271,8 +271,13 @@ pub fn decide_tcp_restore(
 ) -> Result<Option<bool>, String> {
     match (original, we_set, current) {
         (Some(o), Some(w), Some(c)) if c == w => Ok(Some(o)),
-        (Some(_), Some(_), Some(_)) => Err("настройку уже изменила другая программа или администратор — Discord Bridge её не трогает".into()),
-        (Some(_), Some(_), None) => Err("не удалось определить текущее состояние TCP timestamps".into()),
+        (Some(_), Some(_), Some(_)) => Err(
+            "настройку уже изменила другая программа или администратор — Bridge её не трогает"
+                .into(),
+        ),
+        (Some(_), Some(_), None) => {
+            Err("не удалось определить текущее состояние TCP timestamps".into())
+        }
         _ => Ok(None),
     }
 }

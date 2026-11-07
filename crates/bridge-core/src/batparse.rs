@@ -414,7 +414,7 @@ pub fn parse_bat(src: &str, opts: &BatOptions) -> Result<BatImport, BatError> {
                 "gamefilter" | "gamefiltertcp" | "gamefilterudp" => notes.push(ImportNote {
                     line: lineno,
                     text: clip(t),
-                    reason: "значения игрового фильтра берутся из настроек Discord Bridge".into(),
+                    reason: "значения игрового фильтра берутся из настроек Bridge".into(),
                 }),
                 _ => {
                     let safe = !key.is_empty()
@@ -447,7 +447,7 @@ pub fn parse_bat(src: &str, opts: &BatOptions) -> Result<BatImport, BatError> {
                 (true, Some("check_updates"), 2) => notes.push(ImportNote {
                     line: lineno,
                     text: clip(t),
-                    reason: "проверка обновлений Flowseal выполняется самим Discord Bridge".into(),
+                    reason: "проверка обновлений Flowseal выполняется самим Bridge".into(),
                 }),
                 _ => unsupported_line("вызов внешнего скрипта не поддерживается", &mut unsupported),
             }

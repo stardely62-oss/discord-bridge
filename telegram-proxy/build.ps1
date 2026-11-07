@@ -1,4 +1,4 @@
-# Builds the headless tg-ws-proxy engine for Discord Bridge (Windows CI).
+# Builds the headless tg-ws-proxy engine for Bridge (Windows CI).
 #   ./telegram-proxy/build.ps1 [-Out resources/tg-ws-proxy]
 # - upstream source: git fetch of the pinned commit (verified by its SHA-1);
 # - Python packages: --require-hashes, binary wheels only, no dependencies
