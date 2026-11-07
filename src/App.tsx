@@ -79,26 +79,30 @@ export default function App() {
   return (
     <div className="flex h-full overflow-hidden">
       <Sidebar />
-      <main className="relative min-w-0 flex-1 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={page}
-            initial={reduce ? false : { opacity: 0 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduce ? undefined : { opacity: 0 }}
-            transition={{ duration: 0.1 }}
-            className={page === "strategies" ? "h-full" : "mx-auto max-w-4xl px-7 py-6 narrow:px-5"}
-          >
-            {pages[page]}
-          </motion.div>
-        </AnimatePresence>
-      </main>
+      {/* Update notices sit below the page, not over it, so they never cover
+          its controls; the page scrolls in the remaining space. */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <main className="relative min-h-0 min-w-0 flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={page}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.1 }}
+              className={page === "strategies" ? "h-full" : "mx-auto max-w-4xl px-7 py-6 narrow:px-5"}
+            >
+              {pages[page]}
+            </motion.div>
+          </AnimatePresence>
+        </main>
+        <UpdateNotices />
+      </div>
       <Onboarding />
       <ActivationDialog />
       <LaunchDialog />
       <ConfirmHost />
       <Toasts />
-      <UpdateNotices />
     </div>
   );
 }

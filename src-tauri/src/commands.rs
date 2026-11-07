@@ -346,6 +346,8 @@ pub(crate) fn external_url(target: &str) -> Option<String> {
             // The author's other projects (About page); a fixed GitHub Pages
             // address of the project account, never taken from the network.
             "author-projects" => "https://stardely62-oss.github.io/",
+            // Issue forms (.github/ISSUE_TEMPLATE); the report is attached by the user.
+            "report-issue" => "https://github.com/stardely62-oss/discord-bridge/issues/new/choose",
             _ => return None,
         }
         .to_string(),
@@ -1263,6 +1265,10 @@ mod list_file_tests {
         assert_eq!(
             super::external_url("author-projects").as_deref(),
             Some("https://stardely62-oss.github.io/")
+        );
+        assert_eq!(
+            super::external_url("report-issue").as_deref(),
+            Some("https://github.com/stardely62-oss/discord-bridge/issues/new/choose")
         );
         for bad in [
             "app-release:0.1.0/../../x",
