@@ -35,6 +35,8 @@ Release tag:         cygwin-3.4.10
 Commit:              89a1e4a573d40b233011402f42630b970ff71291
 Mirror:              https://github.com/cygwin/cygwin/tree/cygwin-3.4.10
 Archive:             https://github.com/cygwin/cygwin/archive/refs/tags/cygwin-3.4.10.tar.gz
+Copy kept by Bridge: cygwin-3.4.10-source.tar.gz in
+                     https://github.com/stardely62-oss/discord-bridge/releases/tag/sources-flowseal-1.10.4
 
 The library may be replaced with a modified, interface-compatible build;
 see THIRD_PARTY_NOTICES.md, section "Replacing LGPL components".

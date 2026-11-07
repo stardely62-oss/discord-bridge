@@ -159,53 +159,50 @@ jobs:
           "{0}  {1}" -f (Get-FileHash "dist-release/$name" -Algorithm SHA256).Hash.ToLower(), $name | Set-Content -Encoding ascii dist-release/SHA256SUMS.txt
           Get-Content dist-release/SHA256SUMS.txt
           $lock = Get-Content resources/flowseal.lock.json -Raw | ConvertFrom-Json
+          $stable = -not "$env:TAG".Contains('-')
+          $kind = if ($stable) {
+            "**Стабильная версия.** Каждая сборка проходит автоматические проверки в CI на Windows; основные сценарии проверены вручную (см. ниже). Результат обхода зависит от провайдера и стратегии и не гарантирован."
+          } else {
+            "**Техническая alpha-сборка.** Не является подтверждённым решением блокировки."
+          }
           $notes = @(
             "## Bridge $env:TAG", "",
-            "**Техническая alpha-сборка.** Не является подтверждённым решением блокировки.", "",
+            $kind, "",
             "| Компонент | Версия |", "|---|---|",
             "| Flowseal zapret-discord-youtube | $($lock.version) (архив SHA-256 ``$($lock.sha256)``) |",
             "| winws (zapret) | $($lock.winwsVersion) |",
-            "| WinDivert | 2.x (из релиза Flowseal $($lock.version)) |",
+            "| WinDivert | 2.2.2 (из релиза Flowseal $($lock.version)) |",
+            "| Cygwin DLL | 3.4.10 |",
+            "| Telegram WS Proxy (Flowseal tg-ws-proxy) | 1.11.4 |",
             "| Сборка | $env:COMMIT |", "",
-            "### Новое имя: Bridge",
-            "- Discord Bridge теперь называется **Bridge**: окно, трей, установщик, меню «Пуск» и документация.",
-            "- Обновление поверх Discord Bridge alpha.10 ставится в прежнюю папку и сохраняет настройки, стратегии и автозапуск. Старые ярлык и запись в «Программах» удаляются, дублей нет.",
-            "- Внутренние имена (``discord-bridge.exe``, служба Discord Bridge Helper, пути настроек) не изменились.", "",
-            "### Telegram WS Proxy",
-            "- Локальный MTProto-прокси для Telegram Desktop на движке Flowseal tg-ws-proxy 1.11.4.",
-            "- Работает независимо от Zapret, без прав администратора, со своим автозапуском. Подключение Telegram Desktop одной кнопкой через ``tg://proxy``.",
-            "- Компактная карточка на главной: статус «подключён» показывается только по факту обмена данными с Telegram.", "",
-            "### Карточки сервисов и каталог",
-            "- Подробные карточки Discord, YouTube, Google и Cloudflare с реальными списками Flowseal.",
-            "- Подписанный каталог наборов и обновлённый встроенный снимок.", "",
-            "### Проверка обновлений",
-            "- При запуске проверяются новые версии Bridge и Flowseal. Ссылка ведёт на точную страницу релиза, приложение не устанавливается само.",
-            "- Обновления Flowseal ставятся только по манифесту с подписью Ed25519.", "",
-            "### Исправления и совместимость",
-            "- Секрет прокси хранится в файле с закрытым доступом (DACL в Windows).",
-            "- Ссылка Telegram использует порт работающего прокси до перезапуска.",
-            "- Установщик сохраняет прежнюю папку и автозапуск при обновлении с alpha.10; удаление убирает автозапуск.", "",
+            "### Что в этой версии",
+            "- **Новое имя: Bridge.** Обновление поверх Discord Bridge 0.1.0-alpha.10 и Bridge 0.1.0-alpha.11 ставится в прежнюю папку и сохраняет настройки, стратегии и автозапуск; старые ярлык и запись в «Программах» удаляются.",
+            "- **Telegram WS Proxy.** Локальный MTProto-прокси для Telegram Desktop на движке Flowseal tg-ws-proxy, независимый от Zapret, со своим автозапуском; подключение одной кнопкой через ``tg://proxy``. Резервный маршрут через Cloudflare выключен по умолчанию.",
+            "- **Zapret.** Все стратегии Flowseal, автоподбор, редактор, импорт BAT без выполнения команд.",
+            "- **Карточки сервисов и каталог.** Discord, YouTube, Google, Cloudflare с реальными списками Flowseal; подписанный каталог наборов.",
+            "- **Проверка обновлений** Bridge и Flowseal; обновления Flowseal — только по манифесту с подписью Ed25519.",
+            "- **Лицензии.** Уведомления всех сторонних компонентов, включая Rust- и npm-пакеты, в папке ``licenses/``; исходный код WinDivert, Cygwin и zapret — в релизе [sources-flowseal-$($lock.version)](https://github.com/$env:GITHUB_REPOSITORY/releases/tag/sources-flowseal-$($lock.version)).", "",
             "### Благодарности",
             "- Bridge построен на работе других открытых проектов: [Flowseal zapret-discord-youtube](https://github.com/Flowseal/zapret-discord-youtube) и [tg-ws-proxy](https://github.com/Flowseal/tg-ws-proxy), [zapret](https://github.com/bol-van/zapret) (bol-van), [WinDivert](https://github.com/basil00/WinDivert) (basil00), Cygwin, Python, Tauri, Rust, React, PyInstaller и др.",
-            "- Полный список — в разделе «Благодарности» README; лицензии — в THIRD_PARTY_NOTICES.md и папке ``licenses/``.",
-            "- Исходный код сторонних компонентов (WinDivert, Cygwin, zapret и др.): точные версии и ссылки — в [THIRD_PARTY_NOTICES.md](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:COMMIT/THIRD_PARTY_NOTICES.md) этой сборки.", "",
+            "- Полный список — в разделе «Благодарности» README; лицензии и ссылки на исходный код — в [THIRD_PARTY_NOTICES.md](https://github.com/$env:GITHUB_REPOSITORY/blob/$env:COMMIT/THIRD_PARTY_NOTICES.md) этой сборки.", ""
+          )
+          if ($stable) {
+            $notes += @(
+              "### Проверено вручную",
+              "Владелец проекта на своём ПК с Windows: Discord и голосовые каналы, YouTube и сайты, Telegram Desktop через Telegram WS Proxy (сообщения и медиа), установка и обновление поверх прежней версии.", ""
+            )
+          }
+          $notes += @(
             "### Известные ограничения",
-            "- Telegram WS Proxy не проверен вручную с настоящим Telegram Desktop: вход, сообщения, медиа и звонки не подтверждены.",
-            "- Звонки Telegram используют отдельный медиатрафик и могут не проходить через MTProto-прокси.",
-            "- Установщик не подписан Authenticode: возможны предупреждения SmartScreen и браузера (в том числе Chrome).",
-            "- WinDivert может определяться антивирусами как RiskTool/PUA; исполняемый файл PyInstaller тоже иногда получает ложные срабатывания. Не отключайте защиту — сверьте SHA-256.",
-            "- Результат обхода зависит от провайдера и стратегии и не гарантирован.",
-            "",
+            "- Звонки Telegram через прокси не проверялись: они используют отдельный медиатрафик и могут не работать.",
+            "- Ручная проверка — на одном компьютере; у другого провайдера и с другой стратегией результат может отличаться.",
+            "- Установщик не подписан Authenticode: перед запуском Windows предупреждает о файле неизвестного издателя, возможны предупреждения браузера.",
+            "- WinDivert может определяться антивирусами как RiskTool/PUA; исполняемый файл PyInstaller тоже иногда получает ложные срабатывания. Не отключайте защиту — сверьте SHA-256.", "",
             "### Проверено автоматически (CI)",
             "- Тесты ядра: парсер BAT на всех стратегиях Flowseal (точный порядок аргументов), валидация, импорт/экспорт, diff, миграции, подписи манифестов и каталога, протокол IPC.",
             "- Тесты приложения и службы на Windows, clippy, сборка установщика.",
-            "- Установка на Windows Server в CI: обновление поверх alpha.10, повторная установка, удаление, служба; Telegram WS Proxy из Program Files (запуск, остановка, занятый порт, секрет не попадает в журнал).",
-            "- Содержимое установщика: exe и служба этой сборки, файлы Flowseal по хешам манифеста, лицензии; значок в exe и установщике.", "",
-            "### НЕ проверено на обычном компьютере пользователя",
-            "- Реальная работа обхода DPI и голосовых каналов на Windows 11 с блокировкой.",
-            "- Установка/удаление, служба, трей, автозапуск и перезагрузка на Windows 10/11 пользователя.",
-            "- Telegram Desktop через Telegram WS Proxy.",
-            "- Установщик не подписан цифровой подписью (возможно предупреждение SmartScreen).", "",
+            "- Установка на Windows Server в CI: обновление поверх предыдущего релиза, повторная установка, удаление, служба; Telegram WS Proxy из Program Files (запуск, остановка, занятый порт, секрет не попадает в журнал).",
+            "- Содержимое установщика: exe и служба этой сборки, файлы Flowseal по хешам манифеста, лицензии и происхождение бинарников движка; значок в exe и установщике.", "",
             "Сверьте SHA-256 установщика с ``SHA256SUMS.txt``. Инструкция ручной проверки: docs/manual-testing.md."
           )
           $notes | Set-Content -Encoding utf8 dist-release/notes.md
@@ -246,7 +243,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist-release
-          pre=""; case "$TAG" in *-*) pre="--prerelease";; esac
+          # A stable version is marked latest explicitly, so that service
+          # releases (flowseal-*, sources-*) never take "Latest" from it.
+          pre="--latest"; case "$TAG" in *-*) pre="--prerelease --latest=false";; esac
           if [ "$DRY_RUN" = "true" ]; then
             echo "dry run — would publish $TAG $pre:"; ls -l; cat SHA256SUMS.txt; exit 0
           fi
