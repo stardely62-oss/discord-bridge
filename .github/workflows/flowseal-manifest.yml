@@ -1,6 +1,6 @@
 name: Flowseal manifest
 
-# Publishes a signed manifest that lets installed Discord Bridge clients
+# Publishes a signed manifest that lets installed Bridge clients
 # update their Flowseal bundle. Run manually from main after reviewing the
 # new Flowseal release. Four isolated jobs:
 #
@@ -182,5 +182,5 @@ jobs:
           fi
           gh release create "flowseal-${VERSION}" "$f" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "Flowseal ${VERSION} — signed manifest" \
-            --notes "Подписанный манифест для обновления Flowseal ${VERSION} в Discord Bridge. Архив: официальный релиз Flowseal, SHA-256 ${SOURCE_SHA256}." \
+            --notes "Подписанный манифест для обновления Flowseal ${VERSION} в Bridge. Архив: официальный релиз Flowseal, SHA-256 ${SOURCE_SHA256}." \
             --latest=false

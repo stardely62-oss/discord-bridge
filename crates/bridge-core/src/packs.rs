@@ -64,7 +64,7 @@ pub enum PackCategory {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum PackSource {
-    /// Maintained by the Discord Bridge project.
+    /// Maintained by the Bridge project.
     Official,
     /// Contributed by the community, reviewed before publication.
     Community,
@@ -192,9 +192,9 @@ pub enum CatalogError {
     Signature(String),
     #[error("каталог повреждён: {0}")]
     Malformed(String),
-    #[error("неподдерживаемый формат каталога {0} (обновите Discord Bridge)")]
+    #[error("неподдерживаемый формат каталога {0} (обновите Bridge)")]
     UnsupportedFormat(u32),
-    #[error("каталог требует Discord Bridge {0} или новее")]
+    #[error("каталог требует Bridge {0} или новее")]
     AppTooOld(String),
     #[error("каталог больше допустимого: {0}")]
     TooLarge(String),
@@ -545,7 +545,7 @@ pub fn verify_manifest(
         .and_then(|v| v.get("kind").and_then(|k| k.as_str()).map(str::to_string));
     if kind.as_deref() != Some(CATALOG_KIND) {
         return Err(CatalogError::Signature(
-            "подписанный документ не является каталогом Discord Bridge".into(),
+            "подписанный документ не является каталогом Bridge".into(),
         ));
     }
     let probe: serde_json::Value =

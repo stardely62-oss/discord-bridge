@@ -2,7 +2,7 @@ import type { UpdateInfo, UpdatesView } from "../services/types";
 
 /**
  * Update notices shown once per session and version:
- * - `app` — a newer Discord Bridge release (open its exact page);
+ * - `app` — a newer Bridge release (open its exact page);
  * - `flowsealReady` — a newer Flowseal with a verified signed manifest;
  * - `flowsealUnavailable` — a newer official Flowseal release that Discord
  *   Bridge cannot install yet (no verified signed manifest). No install action.

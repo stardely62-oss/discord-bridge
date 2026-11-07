@@ -109,6 +109,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Fetch and verify Flowseal
         run: node scripts/fetch-flowseal.mjs
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11.9"
+      - name: Build the headless Telegram WS Proxy engine (pinned upstream commit, hash-locked packages)
+        shell: pwsh
+        run: ./telegram-proxy/build.ps1
       - name: Tests
         run: cargo test -p bridge-core -p discord-bridge-helper -p bridge-tools
       - name: Build helper service
@@ -154,7 +160,7 @@ jobs:
           Get-Content dist-release/SHA256SUMS.txt
           $lock = Get-Content resources/flowseal.lock.json -Raw | ConvertFrom-Json
           $notes = @(
-            "## Discord Bridge $env:TAG", "",
+            "## Bridge $env:TAG", "",
             "**Техническая alpha-сборка.** Не является подтверждённым решением блокировки.", "",
             "| Компонент | Версия |", "|---|---|",
             "| Flowseal zapret-discord-youtube | $($lock.version) (архив SHA-256 ``$($lock.sha256)``) |",
@@ -217,4 +223,4 @@ jobs:
             echo "::error::release $TAG already exists — published releases are never replaced"; exit 1
           fi
           gh release create "$TAG" *.exe SHA256SUMS.txt -R "$GITHUB_REPOSITORY" --verify-tag \
-            --title "Discord Bridge $TAG" --notes-file notes.md $pre
+            --title "Bridge $TAG" --notes-file notes.md $pre

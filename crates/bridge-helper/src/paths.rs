@@ -43,7 +43,7 @@ impl Paths {
     pub fn updates_dir(&self) -> PathBuf {
         self.data_dir.join("bundles")
     }
-    /// Every directory a winws of Discord Bridge can run from: the shipped
+    /// Every directory a winws of Bridge can run from: the shipped
     /// bundles, verified updates (older versions ran from these) and the
     /// immutable engine copies. Used to tell our winws from foreign ones.
     pub fn engine_roots(&self) -> Vec<PathBuf> {
@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn stop_check_recognises_winws_from_every_engine_root() {
         let p = Paths {
-            install_dir: PathBuf::from(r"C:\Program Files\Discord Bridge"),
+            install_dir: PathBuf::from(r"C:\Program Files\Bridge"),
             data_dir: PathBuf::from(r"C:\ProgramData\DiscordBridge"),
             client_exe_override: None,
         };
@@ -93,7 +93,7 @@ mod tests {
             (
                 2,
                 Some(PathBuf::from(
-                    r"C:\Program Files\Discord Bridge\flowseal\1.10.4\bin\winws.exe",
+                    r"C:\Program Files\Bridge\flowseal\1.10.4\bin\winws.exe",
                 )),
             ),
             // Verified update bundle.

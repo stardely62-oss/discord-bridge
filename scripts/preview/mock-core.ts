@@ -56,7 +56,7 @@ const settings = {
     { id: "steam", version: "2026-11-05", domains: ["steampowered.com", "steamcommunity.com", "steamstatic.com", "steamcontent.com", "steamserver.net", "steamgames.com", "steam-chat.com", "valvesoftware.com"] },
     { id: "twitch", version: "2026-10-01", domains: ["twitch.tv", "ttvnw.net", "jtvnw.net"] },
     { id: "telegram", version: "2026-11-05", domains: ["telegram.org", "t.me", "telegram.me", "telegra.ph", "telesco.pe", "cdn-telegram.org"], ips: ["91.108.56.0/22", "91.108.4.0/22", "91.108.8.0/22", "91.108.16.0/22", "91.108.12.0/22", "149.154.160.0/20", "91.105.192.0/23", "91.108.20.0/22", "185.76.151.0/24", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2001:67c:4e8::/48", "2001:b28:f23c::/48", "2a0a:f280::/32"] },
-  ], keepLogs: true, checkUpdatesOnStart: true,
+  ], keepLogs: true, checkUpdatesOnStart: true, telegramProxy: { autostart: false, port: 1443, fallbackCfproxy: false, h2Media: true, cfproxyDomains: [], cfproxyWorkerDomains: [] },
   autoCandidates: [], autoMaxAttempts: 8, voiceConfirmations: {}, launchMode: "withBypass",
 };
 const running = scenario !== "stopped" && scenario !== "onboarding";
@@ -67,7 +67,7 @@ const diag = {
     { id: "helper", group: "zapret", title: "Служба Discord Bridge Helper", status: "ok", detail: "служба отвечает" },
     { id: "engine", group: "zapret", title: "Zapret (winws)", status: "ok", detail: "запущен, PID 8812, стратегия «general (ALT2)»" },
     { id: "flowseal", group: "zapret", title: "Компоненты Flowseal", status: "ok", detail: "версия 1.10.4, целостность подтверждена (SHA-256)" },
-    { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "warning", detail: "выключены, а активная стратегия использует fooling=ts", hint: "Flowseal включает их автоматически; Discord Bridge — только с вашего согласия." },
+    { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "warning", detail: "выключены, а активная стратегия использует fooling=ts", hint: "Flowseal включает их автоматически; Bridge — только с вашего согласия." },
     { id: "bfe", group: "system", title: "Base Filtering Engine", status: "ok", detail: "служба запущена" },
     { id: "conflicts", group: "system", title: "Конфликты", status: "ok", detail: "других движков обхода DPI не обнаружено" },
     ...["discord.com", "gateway.discord.gg", "cdn.discordapp.com", "updates.discord.com"].flatMap((h, i) => [
@@ -102,6 +102,35 @@ const listFiles: Record<string, string> = Object.fromEntries(
     ...import.meta.glob("../../resources/flowseal/1.10.4/lists/*", { query: "?raw", import: "default", eager: true }),
   }).map(([k, v]) => [k.split("/").pop()!, v as string]),
 );
+const tgZero = { connections_total: 0, connections_active: 0, connections_ws: 0, connections_h2: 0, connections_tcp_fallback: 0, connections_cfproxy: 0, connections_fronting: 0, connections_bad: 0, connections_masked: 0, ws_errors: 0, bytes_up: 0, bytes_down: 0, relays_active: 0, relays_total: 0 };
+let tgState = q0.get("tg") ?? "stopped";
+const tgView = (next?: string) => {
+  if (next) tgState = next;
+  const connected = tgState === "connected";
+  return {
+    status: {
+      state: tgState, version: "1.11.4", host: "127.0.0.1", port: 1443, pid: tgState === "stopped" ? null : 4242, listening: ["listening", "connected"].includes(tgState),
+      clientsActive: connected ? 6 : 0, relaysActive: connected ? 6 : 0, relayed: connected ? 9 : 0, dataFromTelegram: connected,
+      stats: connected ? { ...tgZero, connections_total: 9, connections_active: 6, connections_ws: 9, bytes_up: 182000, bytes_down: 2400000, relays_active: 6, relays_total: 9 } : tgZero,
+      fallbackCfproxy: false, errorCode: tgState === "error" ? "addressInUse" : null,
+      lastError: tgState === "error" ? "порт 1443 уже занят другой программой — выберите другой порт; Bridge её не останавливает" : null,
+    },
+    component: tgState === "notInstalled" ? { installed: false } : { installed: true, version: "1.11.4", upstreamCommit: "2085861957070eeea07990a522b29f42e5230210" },
+    settings: settings.telegramProxy,
+    pendingRestart: false,
+    connectionPort: settings.telegramProxy.port,
+  };
+};
+const tgDiag = () => [
+  { id: "process", status: "ok", title: "Процесс Telegram Proxy", detail: "запущен Bridge (PID 4242)" },
+  { id: "port", status: "ok", title: "Локальный порт", detail: "127.0.0.1:1443 принимает подключения" },
+  { id: "owner", status: "ok", title: "Владелец порта", detail: "порт слушает процесс, запущенный Bridge" },
+  { id: "client", status: "unknown", title: "Подключение Telegram", detail: "клиент не подключён или ещё не проверено" },
+  { id: "data", status: "unknown", title: "Обмен данными с Telegram", detail: "не проверено (нет подтверждённой передачи)" },
+  { id: "transport", status: "unknown", title: "Использованный маршрут", detail: "не проверено (соединений ещё не было)" },
+  { id: "fallback", status: "ok", title: "Резервный маршрут", detail: "выключен: только прямые соединения с Telegram" },
+  { id: "zapret", status: "ok", title: "Пересечение с Zapret", detail: "Zapret включён, но адресов Telegram в его списках и IPSet нет — соединения прокси он не обрабатывает" },
+];
 // Real core output for two engine states: with unapplied changes (default) and applied.
 const svc = () => (q.get("svc") === "applied" ? services.applied : services.pending);
 const listPage = (a: Record<string, unknown>) => {
@@ -155,11 +184,18 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   get_resources: () => ({ fakes: ["ACTIVE_DISCORD_UDP.bin", "stun.bin", "tls_clienthello_www_google_com.bin", "quic_initial_www_google_com.bin"], lists: ["list-general.txt", "list-google.txt", "list-exclude.txt", "ipset-all.txt"] }),
   run_diagnostics: () => diag,
   diagnostics_history: () => [diag],
-  get_logs: () => ["2026-11-05T10:01:12Z INFO Discord Bridge 0.1.0-alpha.2 started", "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
+  get_logs: () => ["2026-11-05T10:01:12Z INFO Bridge 0.1.0-alpha.2 started", "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
   engine_log: () => ["winws v72.9", "windivert initialized. capture is started."],
   get_settings: () => settings,
   save_settings: (a) => Object.assign(settings, a.settings),
   get_bundle: () => overview().bundle,
+  // Preview only: Telegram WS Proxy states by ?tg=stopped|listening|connected|error|notInstalled.
+  telegram_get: () => tgView(),
+  telegram_start: () => tgView("listening"),
+  telegram_stop: () => tgView("stopped"),
+  telegram_restart: () => tgView("listening"),
+  telegram_diagnostics: () => tgDiag(),
+  telegram_open: () => ({ opened: false, reason: "noTelegram" }),
   services_overview: () => svc().overview,
   service_details: (a) => (svc().details as { summary: { id: string } }[]).find((d) => d.summary.id === a.id),
   flowseal_list_page: listPage,
@@ -167,7 +203,7 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   // Preview only: example results (no real releases are implied).
   updates_get: () => ({
     app: { status: "available", current: "0.1.0-alpha.10", latest: "0.1.0-alpha.11", newer: true, installable: false, url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11", changelog: "Пример заметок к релизу (превью).", checkedAt: Math.floor(Date.now() / 1000) },
-    flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Discord Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
+    flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
     checkingApp: false,
     checkingFlowseal: false,
   }),

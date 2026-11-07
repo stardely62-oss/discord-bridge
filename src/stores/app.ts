@@ -1,9 +1,9 @@
 import { create } from "zustand";
 import { api, errorText } from "../services/api";
-import type { ActivationResult, AutoProgress, CatalogView, LaunchResult, Overview, ServicesOverview, StrategyListItem, UpdatesView } from "../services/types";
+import type { ActivationResult, AutoProgress, CatalogView, LaunchResult, Overview, ServicesOverview, StrategyListItem, TelegramView, UpdatesView } from "../services/types";
 
 export type Page = "home" | "strategies" | "lists" | "diagnostics" | "settings" | "about";
-export type SettingsTab = "general" | "bypass" | "updates";
+export type SettingsTab = "general" | "bypass" | "telegram" | "updates";
 
 export interface Toast {
   id: number;
@@ -27,6 +27,10 @@ interface AppStore {
   /** Service cards (counts, apply state) — refreshed with the catalog and the engine state. */
   services: ServicesOverview | null;
   loadServices: () => Promise<void>;
+  /** Telegram WS Proxy view from Rust (state of the real process). */
+  telegram: TelegramView | null;
+  setTelegram: (v: TelegramView) => void;
+  loadTelegram: () => Promise<void>;
   /** Last update-check results (from Rust; the startup check may run hidden). */
   updates: UpdatesView | null;
   setUpdates: (v: UpdatesView) => void;
@@ -69,6 +73,15 @@ export const useApp = create<AppStore>((set, get) => ({
   launchFailure: null,
   catalog: null,
   services: null,
+  telegram: null,
+  setTelegram: (telegram) => set({ telegram }),
+  loadTelegram: async () => {
+    try {
+      set({ telegram: await api.telegramGet() });
+    } catch {
+      // The card shows "unknown" until the next event.
+    }
+  },
   loadServices: async () => {
     try {
       set({ services: await api.servicesOverview() });

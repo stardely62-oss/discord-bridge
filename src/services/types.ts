@@ -288,6 +288,8 @@ export interface Settings {
   installedPacks: InstalledPack[];
   keepLogs: boolean;
   checkUpdatesOnStart: boolean;
+  /** Telegram WS Proxy (independent of the bypass; the secret is never here). */
+  telegramProxy: TelegramProxySettings;
   autoCandidates: string[];
   autoMaxAttempts: number;
   voiceConfirmations: Record<string, { at: number; works: boolean; strategyId: string }>;
@@ -577,4 +579,76 @@ export interface ListPage {
   offset: number;
   /** [1-based line number, original line] */
   lines: [number, string][];
+}
+
+// ---------------- Telegram WS Proxy (Rust: bridge_telegram, src-tauri/src/telegram.rs) ----------------
+
+export interface TelegramProxySettings {
+  autostart: boolean;
+  port: number;
+  /** Cloudflare relays when a direct WebSocket fails (off by default). */
+  fallbackCfproxy: boolean;
+  h2Media: boolean;
+  cfproxyDomains: string[];
+  cfproxyWorkerDomains: string[];
+}
+
+/** From the real child process: never a UI flag. `connected` only with an authenticated client relayed to Telegram. */
+export type TelegramState = "notInstalled" | "stopped" | "starting" | "listening" | "connected" | "error";
+
+export interface TelegramEngineStats {
+  connections_total: number;
+  connections_active: number;
+  connections_ws: number;
+  connections_h2: number;
+  connections_tcp_fallback: number;
+  connections_cfproxy: number;
+  connections_fronting: number;
+  connections_bad: number;
+  connections_masked: number;
+  ws_errors: number;
+  bytes_up: number;
+  bytes_down: number;
+  /** Authorised client connections relayed to Telegram now / since start. */
+  relays_active: number;
+  relays_total: number;
+}
+
+export interface TelegramStatus {
+  state: TelegramState;
+  version?: string | null;
+  host: string;
+  port: number;
+  pid?: number | null;
+  startedAt?: number | null;
+  listening: boolean;
+  /** TCP connections to the proxy now, authorised or not (no evidence of Telegram). */
+  clientsActive: number;
+  /** Authorised connections relayed to Telegram right now. */
+  relaysActive: number;
+  /** History since the start. */
+  relayed: number;
+  dataFromTelegram: boolean;
+  stats: TelegramEngineStats;
+  fallbackCfproxy: boolean;
+  errorCode?: string | null;
+  lastError?: string | null;
+  exitCode?: number | null;
+}
+
+export interface TelegramView {
+  status: TelegramStatus;
+  component: { installed: boolean; version?: string | null; upstreamCommit?: string | null; problem?: string | null };
+  settings: TelegramProxySettings;
+  /** Running with older settings: a restart applies the saved ones. */
+  pendingRestart: boolean;
+  /** The port Telegram must use now (the running process's port). */
+  connectionPort: number;
+}
+
+export interface TelegramDiagItem {
+  id: string;
+  status: "ok" | "warn" | "bad" | "unknown";
+  title: string;
+  detail: string;
 }

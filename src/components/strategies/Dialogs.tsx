@@ -216,8 +216,8 @@ export function ImportDialog({ open: isOpen, onClose, onImported }: { open: bool
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
           <div>
             {tr(
-              "Поддерживаются BAT/CMD стратегии Flowseal/zapret, JSON и TOML Discord Bridge. Файлы только анализируются: команды из BAT никогда не выполняются, пути к файлам вне ресурсов Flowseal отклоняются.",
-              "Flowseal/zapret BAT/CMD, Discord Bridge JSON and TOML are supported. Files are only parsed: BAT commands are never executed and paths outside Flowseal resources are rejected.",
+              "Поддерживаются BAT/CMD стратегии Flowseal/zapret, JSON и TOML Bridge. Файлы только анализируются: команды из BAT никогда не выполняются, пути к файлам вне ресурсов Flowseal отклоняются.",
+              "Flowseal/zapret BAT/CMD, Bridge JSON and TOML are supported. Files are only parsed: BAT commands are never executed and paths outside Flowseal resources are rejected.",
             )}
           </div>
         </div>

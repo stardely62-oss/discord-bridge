@@ -1,4 +1,4 @@
-//! Discord Bridge application entry point.
+//! Bridge application entry point.
 
 mod catalog_sync;
 mod commands;
@@ -10,6 +10,7 @@ mod privileges;
 mod services;
 mod state;
 mod strategies;
+mod telegram;
 mod zapret;
 
 use crate::configuration::{CloseBehavior, ConfigurationManager};
@@ -23,15 +24,24 @@ use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{Emitter, Manager, WindowEvent};
 
+/// Name of the HKCU Run value (see the autostart plugin above).
+pub const AUTOSTART_VALUE_NAME: &str = "Discord Bridge";
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             platform::tray::show_main(app);
         }))
-        .plugin(tauri_plugin_autostart::init(
-            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--minimized"]),
-        ))
+        // The Run value keeps its pre-rename name ("Discord Bridge" up to
+        // 0.1.0-alpha.10): an internal identifier, so an existing autostart
+        // keeps working after the upgrade without any migration. Windows
+        // shows the program's file description ("Bridge") in Startup apps.
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name(AUTOSTART_VALUE_NAME)
+                .args(["--minimized"])
+                .build(),
+        )
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
@@ -49,7 +59,7 @@ pub fn run() {
                 .with_env_filter(tracing_subscriber::EnvFilter::new("info"))
                 .try_init();
 
-            let config = ConfigurationManager::load(config_dir);
+            let config = ConfigurationManager::load(config_dir.clone());
             logs.set_enabled(config.settings.keep_logs);
             if config.recovered {
                 tracing::warn!("settings were corrupted and restored from backup");
@@ -57,6 +67,9 @@ pub fn run() {
             let start_minimized =
                 std::env::args().any(|a| a == "--minimized") || config.settings.start_minimized;
             let history_path = data_dir.join("diagnostics-history.json");
+            // Telegram WS Proxy: independent of the helper and of Zapret.
+            let telegram =
+                telegram::TelegramRuntime::new(handle.clone(), &resource_dir, &config_dir);
             let state = AppState {
                 history: Mutex::new(AppState::load_history(&history_path)),
                 history_path,
@@ -73,11 +86,12 @@ pub fn run() {
                 quitting: Default::default(),
                 catalog: catalog_sync::CatalogRuntime::production(data_dir.join("catalog")),
                 list_cache: Mutex::new(None),
+                telegram,
                 updates: bridge_updates::UpdateCenter::production(),
             };
             app.manage(state);
             platform::tray::create(&handle)?;
-            tracing::info!("Discord Bridge {} started", env!("CARGO_PKG_VERSION"));
+            tracing::info!("Bridge {} started", env!("CARGO_PKG_VERSION"));
 
             if !start_minimized {
                 platform::tray::show_main(&handle);
@@ -144,6 +158,7 @@ pub fn run() {
 
             catalog_sync::spawn_periodic(handle.clone());
             commands::spawn_startup_update_check(handle.clone());
+            telegram::spawn_autostart(handle.clone());
 
             // Lightweight watcher: detects an engine that died on its own.
             let h = handle.clone();
@@ -274,8 +289,16 @@ pub fn run() {
             commands::updates_get,
             commands::get_bundle,
             commands::quit_app,
+            telegram::telegram_get,
+            telegram::telegram_start,
+            telegram::telegram_stop,
+            telegram::telegram_restart,
+            telegram::telegram_link,
+            telegram::telegram_open,
+            telegram::telegram_regenerate_secret,
+            telegram::telegram_diagnostics,
         ])
         .build(tauri::generate_context!())
-        .expect("error while building Discord Bridge")
+        .expect("error while building Bridge")
         .run(|_app, _event| {});
 }

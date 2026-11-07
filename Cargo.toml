@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/bridge-core", "crates/bridge-helper", "crates/bridge-tools", "crates/bridge-updates", "src-tauri"]
+members = ["crates/bridge-core", "crates/bridge-helper", "crates/bridge-tools", "crates/bridge-updates", "crates/bridge-telegram", "src-tauri"]
 
 [workspace.package]
 version = "0.1.0-alpha.10"

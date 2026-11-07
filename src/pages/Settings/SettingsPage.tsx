@@ -7,6 +7,8 @@ import { api, errorText } from "../../services/api";
 import type { CompatEntry, FlowsealAction, Settings, TcpInfo, UpdateInfo } from "../../services/types";
 import { useApp, useTr, type SettingsTab } from "../../stores/app";
 import { appReleaseTarget, checkState, type CheckState } from "../../updates/notices";
+import { stateLabel, validPort } from "../../telegram/view";
+import type { TelegramDiagItem, TelegramProxySettings } from "../../services/types";
 
 type Tab = SettingsTab;
 
@@ -241,6 +243,7 @@ export default function SettingsPage() {
             options={[
               { value: "general", label: tr("Основные", "General") },
               { value: "bypass", label: tr("Обход", "Bypass") },
+              { value: "telegram", label: "Telegram Proxy" },
               { value: "updates", label: tr("Обновления", "Updates") },
             ]}
           />
@@ -437,7 +440,7 @@ export default function SettingsPage() {
               }
               description={
                 tcp
-                  ? `${tr("Сейчас", "Now")}: ${tcp.current == null ? tr("неизвестно", "unknown") : tcp.current ? tr("включены", "on") : tr("выключены", "off")}${tcp.changedByUs ? tr(" · изменено Discord Bridge", " · changed by Discord Bridge") : ""}`
+                  ? `${tr("Сейчас", "Now")}: ${tcp.current == null ? tr("неизвестно", "unknown") : tcp.current ? tr("включены", "on") : tr("выключены", "off")}${tcp.changedByUs ? tr(" · изменено Bridge", " · changed by Bridge") : ""}`
                   : tr("Нужны стратегиям с fooling=ts. Меняется только с вашего согласия.", "Needed by fooling=ts strategies. Changed only with your consent.")
               }
             >
@@ -457,18 +460,20 @@ export default function SettingsPage() {
         </>
       )}
 
+      {tab === "telegram" && <TelegramSettings settings={s} save={(t) => set("telegramProxy", t)} saving={saving} />}
+
       {tab === "updates" && (
         <>
           <Section title={tr("Автоматические проверки", "Automatic checks")}>
             <SettingRow
               title={tr("Автоматически проверять обновления при запуске", "Check for updates automatically at startup")}
-              description={tr("Проверять новые версии Discord Bridge и Flowseal при запуске приложения. Загрузка и установка обновлений выполняются только с вашего согласия.", "Check for new Discord Bridge and Flowseal versions when the app starts. Updates are downloaded and installed only with your consent.")}
+              description={tr("Проверять новые версии Bridge и Flowseal при запуске приложения. Загрузка и установка обновлений выполняются только с вашего согласия.", "Check for new Bridge and Flowseal versions when the app starts. Updates are downloaded and installed only with your consent.")}
             >
               <Switch label="check-updates-on-start" checked={s.checkUpdatesOnStart} onChange={(v) => set("checkUpdatesOnStart", v)} />
             </SettingRow>
           </Section>
 
-          <Section title="Discord Bridge">
+          <Section title="Bridge">
             <Facts
               rows={[
                 [tr("Установлена", "Installed"), overview?.appVersion ?? "—"],
@@ -591,5 +596,144 @@ export default function SettingsPage() {
         </>
       )}
     </div>
+  );
+}
+
+const domainsText = (a: string[]) => a.join("\n");
+const domainsList = (t: string) =>
+  t
+    .split(/[\s,;]+/)
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+
+/** Telegram WS Proxy settings: independent of the bypass (autostart, exit). */
+function TelegramSettings({ settings, save, saving }: { settings: Settings; save: (t: TelegramProxySettings) => void; saving: boolean }) {
+  const tr = useTr();
+  const { telegram, setTelegram, toast } = useApp();
+  const t = settings.telegramProxy;
+  const [diag, setDiag] = useState<TelegramDiagItem[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [advanced, setAdvanced] = useState(t.cfproxyDomains.length > 0 || t.cfproxyWorkerDomains.length > 0);
+  const st = telegram?.status;
+  const label = st ? stateLabel(st.state, tr) : null;
+  const upd = (patch: Partial<TelegramProxySettings>) => save({ ...t, ...patch });
+  const act = async (f: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await f();
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const regenerate = async () => {
+    const ok = await confirmDialog({
+      title: tr("Сменить секрет прокси?", "Change the proxy secret?"),
+      body: tr("Старая ссылка перестанет работать: Telegram, подключённый с ней, не сможет соединиться, пока вы не подключите его по новой ссылке. Работающий прокси будет перезапущен.", "The old link stops working: Telegram connected with it cannot connect until you connect it with the new link. A running proxy is restarted."),
+      confirmLabel: tr("Сменить секрет", "Change secret"),
+    });
+    if (!ok) return;
+    await act(async () => {
+      setTelegram(await api.telegramRegenerateSecret());
+      toast("ok", tr("Секрет изменён — подключите Telegram по новой ссылке", "Secret changed — connect Telegram with the new link"));
+    });
+  };
+  return (
+    <>
+      <Section title={tr("Состояние", "State")}>
+        <SettingRow
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              Telegram WS Proxy {label && <Badge tone={label.level === "ok" ? "ok" : label.level === "bad" ? "bad" : label.level === "busy" ? "accent" : "neutral"}>{label.text}</Badge>}
+            </span>
+          }
+          description={
+            telegram?.component.installed
+              ? tr(`Движок tg-ws-proxy ${telegram.component.version} (Flowseal, коммит ${telegram.component.upstreamCommit?.slice(0, 7)}), проверен по SHA-256. Отдельный процесс без прав администратора, не зависит от Zapret и службы.`, `tg-ws-proxy ${telegram.component.version} engine (Flowseal, commit ${telegram.component.upstreamCommit?.slice(0, 7)}), verified by SHA-256. A separate process without administrator rights, independent of Zapret and the service.`)
+              : telegram?.component.problem ?? tr("Компонент не входит в эту установку.", "The component is not part of this installation.")
+          }
+        >
+          <div className="flex gap-2">
+            <Button size="sm" variant="ghost" disabled={busy || !telegram?.component.installed} onClick={() => act(async () => setTelegram(await api.telegramRestart()))}>
+              {tr("Перезапустить", "Restart")}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => act(async () => setDiag(await api.telegramDiagnostics()))}>
+              {tr("Диагностика", "Diagnostics")}
+            </Button>
+          </div>
+        </SettingRow>
+        {telegram?.pendingRestart && <div className="py-2 text-xs text-warn">{tr("Прокси работает со старыми настройками — перезапустите его, чтобы применить новые.", "The proxy runs with the old settings — restart it to apply the new ones.")}</div>}
+        {diag && (
+          <ul className="space-y-1.5 py-3 text-xs">
+            {diag.map((d) => (
+              <li key={d.id}>
+                <Badge tone={d.status === "ok" ? "ok" : d.status === "warn" ? "warn" : d.status === "bad" ? "bad" : "neutral"}>{d.status === "unknown" ? tr("не проверено", "not checked") : d.status}</Badge> <span className="font-medium">{d.title}</span> — <span className="text-ink-muted">{d.detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+      <Section title={tr("Запуск", "Startup")}>
+        <SettingRow
+          title={tr("Запускать прокси вместе с Bridge", "Start the proxy with Bridge")}
+          description={tr("Не зависит от автовключения обхода. Настройка «Останавливать обход при выходе» на прокси не влияет: при полном выходе из программы прокси останавливается всегда, при сворачивании в трей — продолжает работать.", "Independent of the bypass autostart. “Stop the bypass on exit” does not affect the proxy: a full exit always stops it; closing to the tray keeps it running.")}
+        >
+          <Switch label="telegram-autostart" checked={t.autostart} disabled={saving} onChange={(v) => upd({ autostart: v })} />
+        </SettingRow>
+        <SettingRow title={tr("Локальный порт", "Local port")} description={tr("Прокси слушает только 127.0.0.1. Если порт занят другой программой, она не останавливается — выберите другой порт.", "The proxy listens on 127.0.0.1 only. If the port is used by another program, it is not stopped — choose another port.")}>
+          <NumberField ariaLabel="telegram port" className="w-28" min={1024} max={65535} value={t.port} invalid={!validPort(t.port)} onCommit={(v) => (validPort(Number(v)) ? upd({ port: Number(v) }) : toast("error", tr("Порт должен быть от 1024 до 65535", "The port must be 1024–65535")))} />
+        </SettingRow>
+      </Section>
+      <Section title={tr("Маршрут", "Route")}>
+        <SettingRow
+          title={tr("Резервный маршрут через Cloudflare", "Cloudflare fallback route")}
+          description={tr("Если прямое WebSocket-соединение с Telegram недоступно, трафик пойдёт через сторонние узлы Cloudflare из списка проекта tg-ws-proxy (он обновляется с GitHub). Узлы видят метаданные — адреса и объём, — но не содержимое: MTProto зашифрован Telegram. Выключено по умолчанию; без него при блокировке прямого маршрута Telegram может не подключиться.", "If a direct WebSocket to Telegram is unavailable, traffic goes through third-party Cloudflare relays from the tg-ws-proxy project list (updated from GitHub). Relays see metadata — addresses and volume — but not content: MTProto is encrypted by Telegram. Off by default; without it Telegram may not connect when the direct route is blocked.")}
+        >
+          <Switch label="telegram-fallback" checked={t.fallbackCfproxy} disabled={saving} onChange={(v) => upd({ fallbackCfproxy: v })} />
+        </SettingRow>
+        {t.fallbackCfproxy && (
+          <SettingRow title={tr("Медиа через HTTP/2", "Media over HTTP/2")} description={tr("Загрузка фото и видео через резервные узлы по HTTP/2 (как в tg-ws-proxy по умолчанию).", "Photos and videos through the relays over HTTP/2 (the tg-ws-proxy default).")}>
+            <Switch label="telegram-h2" checked={t.h2Media} disabled={saving} onChange={(v) => upd({ h2Media: v })} />
+          </SettingRow>
+        )}
+        <div className="py-3">
+          <button className="text-xs text-accent hover:underline" onClick={() => setAdvanced(!advanced)}>
+            {advanced ? tr("Скрыть расширенные настройки", "Hide advanced settings") : tr("Расширенные: свои домены Cloudflare и Worker", "Advanced: own Cloudflare and Worker domains")}
+          </button>
+          {advanced && (
+            <div className="mt-2 grid grid-cols-2 gap-3 narrow:grid-cols-1">
+              {(
+                [
+                  ["cfproxyDomains", tr("Свои домены Cloudflare", "Own Cloudflare domains")],
+                  ["cfproxyWorkerDomains", tr("Свои домены Cloudflare Worker", "Own Cloudflare Worker domains")],
+                ] as const
+              ).map(([k, title]) => (
+                <label key={k} className="block text-xs">
+                  <span className="text-ink-muted">{title}</span>
+                  <textarea
+                    className="field mt-1 h-24 font-mono text-[12px]"
+                    defaultValue={domainsText(t[k])}
+                    disabled={saving}
+                    onBlur={(e) => {
+                      const next = domainsList(e.target.value);
+                      if (next.join() !== t[k].join()) upd({ [k]: next } as Partial<TelegramProxySettings>);
+                    }}
+                  />
+                </label>
+              ))}
+              <p className="col-span-2 text-[11px] text-ink-faint narrow:col-span-1">{tr("Используются только при включённом резервном маршруте. Указывайте только свои или проверенные узлы: автоматически неизвестные прокси не включаются.", "Used only with the fallback route on. Enter only your own or trusted relays: unknown proxies are never enabled automatically.")}</p>
+            </div>
+          )}
+        </div>
+      </Section>
+      <Section title={tr("Секрет", "Secret")}>
+        <SettingRow title={tr("Секрет MTProto", "MTProto secret")} description={tr("16 случайных байт, хранятся отдельно от настроек в профиле пользователя Windows и не попадают в журналы и отчёты. Ссылка подключения содержит секрет.", "16 random bytes, stored apart from the settings in the Windows user profile and never written to logs or reports. The connection link contains the secret.")}>
+          <Button size="sm" variant="ghost" disabled={busy} onClick={regenerate}>
+            {tr("Сменить секрет…", "Change secret…")}
+          </Button>
+        </SettingRow>
+      </Section>
+    </>
   );
 }

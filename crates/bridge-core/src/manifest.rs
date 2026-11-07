@@ -7,7 +7,7 @@
 //!    and its DLL/driver against the manifest (shipped inside the protected
 //!    install directory) before every start.
 //! 2. **Updates.** A manifest for a new Flowseal version is accepted only if
-//!    it carries a valid Ed25519 signature from the Discord Bridge release key
+//!    it carries a valid Ed25519 signature from the Bridge release key
 //!    (public key compiled into the binaries). The archive itself is
 //!    downloaded from the official Flowseal GitHub release and must match the
 //!    hash *inside the signed manifest* — a checksum obtained from the same

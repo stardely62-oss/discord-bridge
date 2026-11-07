@@ -1,4 +1,4 @@
-//! Table of winws options understood by Discord Bridge.
+//! Table of winws options understood by Bridge.
 //!
 //! The table is the single source of truth for validation (Rust) and for the
 //! visual editor (exported to the UI through `option_specs()`). Anything not

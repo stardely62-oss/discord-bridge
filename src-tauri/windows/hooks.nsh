@@ -1,4 +1,4 @@
-; Discord Bridge NSIS hooks.
+; Bridge NSIS hooks (product name up to 0.1.0-alpha.10: "Discord Bridge").
 ; The helper service is the only privileged component; the installer
 ; (already elevated in perMachine mode) registers, upgrades and removes it.
 
@@ -46,11 +46,77 @@ AllowSkipFiles off
   ${Loop}
 !macroend
 
+; Telegram WS Proxy is an ordinary child process of Bridge held in a
+; kill-on-close Job Object, so it ends with the app (the installer closes the
+; app first). Defensive: stop only a process running exactly our installed
+; executable — never anything else that may use the same port.
+!macro DB_STOP_TGPROXY
+  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -Command "$$p = '$INSTDIR\tg-ws-proxy\discord-bridge-tg-ws-proxy.exe'; Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -eq $$p } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
+  Pop $9
+!macroend
+
+; ---- Product renamed "Discord Bridge" → "Bridge" (after 0.1.0-alpha.10) ----
+; Tauri keys the install folder, the uninstall entry and the shortcuts on the
+; product name. An upgrade therefore (a) installs into the existing folder —
+; the helper service points into it — and (b) after a successful install
+; removes the old uninstall entry and the old shortcuts (only those that point
+; to our executable), so there is one installation and one set of shortcuts.
+!define DB_OLD_UNINSTKEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\Discord Bridge"
+!define DB_OLD_PRODUCTKEY "Software\Discord Bridge contributors\Discord Bridge"
+
+!macro DB_USE_PREVIOUS_FOLDER
+  ReadRegStr $R9 SHCTX "${DB_OLD_PRODUCTKEY}" ""
+  ${If} $R9 == ""
+    ReadRegStr $R9 SHCTX "${DB_OLD_UNINSTKEY}" "InstallLocation"
+    ; stored quoted
+    StrCpy $R8 $R9 1
+    ${If} $R8 == '"'
+      StrCpy $R9 $R9 "" 1
+      StrCpy $R9 $R9 -1
+    ${EndIf}
+  ${EndIf}
+  ${If} $R9 != ""
+  ${AndIf} ${FileExists} "$R9\discord-bridge.exe"
+    StrCpy $INSTDIR $R9
+    SetOutPath $INSTDIR
+  ${EndIf}
+!macroend
+
+!macro DB_REMOVE_OLD_SHORTCUT LNK
+  ${If} ${FileExists} "${LNK}"
+    !insertmacro IsShortcutTarget "${LNK}" "$INSTDIR\discord-bridge.exe"
+    Pop $0
+    ${If} $0 = 1
+      !insertmacro UnpinShortcut "${LNK}"
+      Delete "${LNK}"
+    ${EndIf}
+  ${EndIf}
+!macroend
+
+!macro DB_REMOVE_OLD_PRODUCT_ENTRIES
+  !insertmacro DB_REMOVE_OLD_SHORTCUT "$SMPROGRAMS\Discord Bridge\Discord Bridge.lnk"
+  RMDir "$SMPROGRAMS\Discord Bridge"
+  !insertmacro DB_REMOVE_OLD_SHORTCUT "$SMPROGRAMS\Discord Bridge.lnk"
+  !insertmacro DB_REMOVE_OLD_SHORTCUT "$DESKTOP\Discord Bridge.lnk"
+  ; The old entry pointed to the same folder; its uninstaller is replaced.
+  ReadRegStr $R9 SHCTX "${DB_OLD_UNINSTKEY}" "UninstallString"
+  ${If} $R9 == '"$INSTDIR\uninstall.exe"'
+    DeleteRegKey SHCTX "${DB_OLD_UNINSTKEY}"
+  ${EndIf}
+  ReadRegStr $R9 SHCTX "${DB_OLD_PRODUCTKEY}" ""
+  ${If} $R9 == "$INSTDIR"
+    DeleteRegKey SHCTX "${DB_OLD_PRODUCTKEY}"
+    DeleteRegKey /ifempty SHCTX "Software\Discord Bridge contributors"
+  ${EndIf}
+!macroend
+
 !macro NSIS_HOOK_PREINSTALL
   ${IfNot} ${AtLeastWin10}
-    MessageBox MB_ICONSTOP "Discord Bridge требует Windows 10 или Windows 11 (x64)." /SD IDOK
+    MessageBox MB_ICONSTOP "Bridge требует Windows 10 или Windows 11 (x64)." /SD IDOK
     Abort
   ${EndIf}
+  !insertmacro DB_USE_PREVIOUS_FOLDER
+  !insertmacro DB_STOP_TGPROXY
   ; Upgrade: stop the running helper (this also stops its own winws through
   ; the job object). Foreign zapret installations are not touched.
   ${If} ${FileExists} "$INSTDIR\discord-bridge-helper.exe"
@@ -62,7 +128,7 @@ AllowSkipFiles off
       Abort
     ${ElseIf} $0 == 4
       !insertmacro DB_RESTART_SERVICE
-      MessageBox MB_ICONSTOP "Движок обхода Discord Bridge (winws) не завершился. Обновление прервано, установленная версия не изменена.$\n$\nПерезагрузите компьютер и запустите установку снова." /SD IDOK
+      MessageBox MB_ICONSTOP "Движок обхода Bridge (winws) не завершился. Обновление прервано, установленная версия не изменена.$\n$\nПерезагрузите компьютер и запустите установку снова." /SD IDOK
       SetErrorLevel 4
       Abort
     ${EndIf}
@@ -97,7 +163,7 @@ AllowSkipFiles off
     ${Loop}
     ${If} ${FileExists} "$INSTDIR\flowseal\*.*"
       !insertmacro DB_RESTART_SERVICE
-      MessageBox MB_ICONSTOP "Файлы Flowseal в папке Discord Bridge заняты: их удерживает Windows (загруженный драйвер WinDivert) или другая программа обхода.$\n$\nОбновление прервано, ничего не изменено. Перезагрузите компьютер и запустите установку снова; если используется другая сборка Zapret, сначала закройте её." /SD IDOK
+      MessageBox MB_ICONSTOP "Файлы Flowseal в папке Bridge заняты: их удерживает Windows (загруженный драйвер WinDivert) или другая программа обхода.$\n$\nОбновление прервано, ничего не изменено. Перезагрузите компьютер и запустите установку снова; если используется другая сборка Zapret, сначала закройте её." /SD IDOK
       SetErrorLevel 5
       Abort
     ${EndIf}
@@ -114,27 +180,37 @@ AllowSkipFiles off
     SetErrorLevel 2
     Abort
   ${EndIf}
+  ; The install succeeded: remove what the old product name left behind.
+  !insertmacro DB_REMOVE_OLD_PRODUCT_ENTRIES
 !macroend
 
-!macro DB_REMOVE_AUTOSTART_FOR ROOTKEY SUBKEY
-  ; Delete the "Discord Bridge" Run value only if it points to our executable.
-  ReadRegStr $2 ${ROOTKEY} "${SUBKEY}Software\Microsoft\Windows\CurrentVersion\Run" "Discord Bridge"
+!macro DB_REMOVE_AUTOSTART_VALUE ROOTKEY SUBKEY NAME
+  ; Delete the Run value NAME only if it points to our executable.
+  ReadRegStr $2 ${ROOTKEY} "${SUBKEY}Software\Microsoft\Windows\CurrentVersion\Run" "${NAME}"
   ${If} $2 == '"$INSTDIR\discord-bridge.exe" --minimized'
   ${OrIf} $2 == '"$INSTDIR\discord-bridge.exe"'
   ${OrIf} $2 == '$INSTDIR\discord-bridge.exe --minimized'
   ${OrIf} $2 == '$INSTDIR\discord-bridge.exe'
-    DeleteRegValue ${ROOTKEY} "${SUBKEY}Software\Microsoft\Windows\CurrentVersion\Run" "Discord Bridge"
+    DeleteRegValue ${ROOTKEY} "${SUBKEY}Software\Microsoft\Windows\CurrentVersion\Run" "${NAME}"
   ${EndIf}
 !macroend
 
+!macro DB_REMOVE_AUTOSTART_FOR ROOTKEY SUBKEY
+  ; The autostart value is named after the product: "Bridge", and
+  ; "Discord Bridge" from versions up to 0.1.0-alpha.10.
+  !insertmacro DB_REMOVE_AUTOSTART_VALUE ${ROOTKEY} "${SUBKEY}" "Bridge"
+  !insertmacro DB_REMOVE_AUTOSTART_VALUE ${ROOTKEY} "${SUBKEY}" "Discord Bridge"
+!macroend
+
 !macro NSIS_HOOK_PREUNINSTALL
-  ; 1. TCP timestamps: offer to restore only a change Discord Bridge made and
+  !insertmacro DB_STOP_TGPROXY
+  ; 1. TCP timestamps: offer to restore only a change Bridge made and
   ;    that nobody changed since (the helper checks both).
   ${If} ${FileExists} "$INSTDIR\discord-bridge-helper.exe"
     nsExec::ExecToLog '"$INSTDIR\discord-bridge-helper.exe" --tcp-changed'
     Pop $0
     ${If} $0 == 10
-      MessageBox MB_YESNO|MB_ICONQUESTION "Discord Bridge включил TCP timestamps в Windows. Вернуть исходное значение?" /SD IDNO IDNO +3
+      MessageBox MB_YESNO|MB_ICONQUESTION "Bridge включил TCP timestamps в Windows. Вернуть исходное значение?" /SD IDNO IDNO +3
         nsExec::ExecToLog '"$INSTDIR\discord-bridge-helper.exe" --restore-tcp'
         Pop $0
     ${EndIf}

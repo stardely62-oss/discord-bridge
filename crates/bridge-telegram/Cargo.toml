@@ -1,0 +1,37 @@
+[package]
+name = "bridge-telegram"
+description = "Telegram WS Proxy manager: verified headless tg-ws-proxy child process, settings, secret, MTProto link"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+getrandom = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Authorization",
+  "Win32_System_JobObjects",
+  "Win32_System_Threading",
+  "Win32_System_Diagnostics_ToolHelp",
+  "Win32_NetworkManagement_IpHelper",
+  "Win32_Networking_WinSock",
+] }
+
+[dev-dependencies]
+tempfile = "3"
+
+# A stand-in for the engine used by the tests (speaks the same stdin/stdout
+# protocol); it is never bundled with the app.
+[[bin]]
+name = "tgproxy-test-child"
+path = "src/bin/test_child.rs"
+test = false

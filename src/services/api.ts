@@ -22,6 +22,8 @@ import type {
   StrategyDiff,
   StrategyListItem,
   UpdateInfo,
+  TelegramView,
+  TelegramDiagItem,
   ServicesOverview,
   CardDetails,
   ListPage,
@@ -103,6 +105,16 @@ export const api = {
   updatesGet: () => invoke<UpdatesView>("updates_get"),
   bundle: () => invoke<BundleState>("get_bundle"),
   quit: () => invoke<void>("quit_app"),
+  // Telegram WS Proxy — independent of the bypass and of the helper service.
+  telegramGet: () => invoke<TelegramView>("telegram_get"),
+  telegramStart: () => invoke<TelegramView>("telegram_start"),
+  telegramStop: () => invoke<TelegramView>("telegram_stop"),
+  telegramRestart: () => invoke<TelegramView>("telegram_restart"),
+  /** The tg:// link contains the secret: only on an explicit user action. */
+  telegramLink: () => invoke<string>("telegram_link"),
+  telegramOpen: () => invoke<{ opened: boolean; reason?: string | null }>("telegram_open"),
+  telegramRegenerateSecret: () => invoke<TelegramView>("telegram_regenerate_secret"),
+  telegramDiagnostics: () => invoke<TelegramDiagItem[]>("telegram_diagnostics"),
 };
 
 export function errorText(e: unknown): string {

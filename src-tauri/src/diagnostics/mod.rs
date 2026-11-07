@@ -112,7 +112,7 @@ pub async fn dns_check(host: &str) -> CheckItem {
                     CheckStatus::Warning,
                     format!("подозрительный ответ DNS: {}", v.join(", ")),
                 );
-                i.hint = Some("Возможна DNS-блокировка или запись в hosts. Discord Bridge не меняет DNS и hosts автоматически.".into());
+                i.hint = Some("Возможна DNS-блокировка или запись в hosts. Bridge не меняет DNS и hosts автоматически.".into());
                 i
             } else {
                 item(
@@ -338,7 +338,7 @@ pub fn engine_items(st: Option<&EngineStatus>, err: Option<&str>) -> Vec<CheckIt
                 CheckStatus::Error,
                 e,
             );
-            i.hint = Some("Переустановите Discord Bridge или запустите службу «Discord Bridge Helper» в services.msc.".into());
+            i.hint = Some("Переустановите Bridge или запустите службу «Discord Bridge Helper» в services.msc.".into());
             i
         }],
         (Some(st), None) => {
@@ -405,14 +405,14 @@ pub fn helper_items(d: &HelperDiagnostics, needs_ts: bool) -> Vec<CheckItem> {
             CheckStatus::Error,
             d.integrity_problems.join("; "),
         );
-        i.hint = Some("Файлы повреждены или изменены. Переустановите Discord Bridge.".into());
+        i.hint = Some("Файлы повреждены или изменены. Переустановите Bridge.".into());
         i
     });
     v.push(match d.tcp_timestamps {
         Some(true) => item("tcp-ts", "system", "TCP timestamps", CheckStatus::Ok, "включены"),
         Some(false) if needs_ts => {
             let mut i = item("tcp-ts", "system", "TCP timestamps", CheckStatus::Warning, "выключены, а активная стратегия использует fooling=ts");
-            i.hint = Some("Flowseal включает их автоматически; Discord Bridge — только с вашего согласия (кнопка ниже).".into());
+            i.hint = Some("Flowseal включает их автоматически; Bridge — только с вашего согласия (кнопка ниже).".into());
             i
         }
         Some(false) => item("tcp-ts", "system", "TCP timestamps", CheckStatus::Ok, "выключены (активной стратегии не требуются)"),
@@ -478,7 +478,7 @@ pub fn helper_items(d: &HelperDiagnostics, needs_ts: bool) -> Vec<CheckItem> {
                 .collect::<Vec<_>>()
                 .join(", "),
         );
-        i.hint = Some("Discord Bridge не останавливает чужие процессы и службы. Остановите их сами (например, service.bat → Remove Services у Flowseal) или запустите обход с явным подтверждением.".into());
+        i.hint = Some("Bridge не останавливает чужие процессы и службы. Остановите их сами (например, service.bat → Remove Services у Flowseal) или запустите обход с явным подтверждением.".into());
         v.push(i);
     }
     v

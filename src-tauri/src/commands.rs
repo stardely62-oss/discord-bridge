@@ -1191,6 +1191,14 @@ pub async fn quit(app: &AppHandle) {
     } else {
         tracing::info!("exit with engine left running by user setting");
     }
+    // Telegram Proxy is our own child process: a full exit always ends it
+    // (stopBypassOnExit concerns Zapret only). Closing to the tray does not
+    // come here.
+    let a = app.clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || {
+        a.state::<AppState>().telegram.stop();
+    })
+    .await;
     app.exit(0);
 }
 

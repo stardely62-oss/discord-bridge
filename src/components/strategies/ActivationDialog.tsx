@@ -74,8 +74,8 @@ export function ActivationDialog() {
           <>
             <p className="text-ink-muted">
               {tr(
-                "Discord Bridge не останавливает чужие процессы и службы. Два движка одновременно обрабатывают одни и те же пакеты, из-за чего соединения обычно ломаются. Рекомендуется сначала остановить другой обход (например, у Flowseal: service.bat → Remove Services).",
-                "Discord Bridge never stops foreign processes or services. Two engines processing the same packets usually break connections. Stop the other bypass first (e.g. Flowseal service.bat → Remove Services).",
+                "Bridge не останавливает чужие процессы и службы. Два движка одновременно обрабатывают одни и те же пакеты, из-за чего соединения обычно ломаются. Рекомендуется сначала остановить другой обход (например, у Flowseal: service.bat → Remove Services).",
+                "Bridge never stops foreign processes or services. Two engines processing the same packets usually break connections. Stop the other bypass first (e.g. Flowseal service.bat → Remove Services).",
               )}
             </p>
             <ul className="space-y-1.5">

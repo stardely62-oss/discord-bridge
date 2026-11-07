@@ -368,7 +368,7 @@ function Ips({ d, onFile }: { d: CardDetails; onFile: (n: string) => void }) {
         )}
       </Section>
       <Section title={tr("Статические записи hosts", "Static hosts entries")}>
-        <p className="text-xs text-ink-muted">{tr("Файл .service/hosts в установленную версию Flowseal не входит: Discord Bridge не меняет hosts Windows.", "The .service/hosts file is not part of the installed Flowseal version: Discord Bridge does not change the Windows hosts file.")}</p>
+        <p className="text-xs text-ink-muted">{tr("Файл .service/hosts в установленную версию Flowseal не входит: Bridge не меняет hosts Windows.", "The .service/hosts file is not part of the installed Flowseal version: Bridge does not change the Windows hosts file.")}</p>
       </Section>
       <Section title={tr("Общий IPSet Flowseal", "Shared Flowseal IPSet")}>
         <p className="text-xs text-ink-muted">{tr("Это общий список сетей, а не адреса конкретного сервиса. Правила с ним действуют на любые соединения с этими сетями на своих портах.", "This is a shared list of networks, not the addresses of one service. Rules with it apply to any connection to these networks on their ports.")}</p>

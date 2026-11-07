@@ -11,9 +11,7 @@ use serde_json::Value;
 pub enum MigrateError {
     #[error("документ не является объектом JSON")]
     NotObject,
-    #[error(
-        "версия схемы {0} новее поддерживаемой ({CURRENT_SCHEMA_VERSION}); обновите Discord Bridge"
-    )]
+    #[error("версия схемы {0} новее поддерживаемой ({CURRENT_SCHEMA_VERSION}); обновите Bridge")]
     TooNew(u64),
     #[error("некорректная версия схемы")]
     BadVersion,

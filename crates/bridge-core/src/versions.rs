@@ -1,6 +1,6 @@
 //! Version comparison.
 //!
-//! * **Discord Bridge** versions are Semantic Versioning 2.0 (`0.1.0-alpha.3`),
+//! * **Bridge** versions are Semantic Versioning 2.0 (`0.1.0-alpha.3`),
 //!   compared with the `semver` crate: `0.1.0-alpha.3 < 0.1.0-alpha.10 < 0.1.0`.
 //! * **Flowseal** tags are not guaranteed to be SemVer (`1.10.4`, possibly
 //!   `1.10`, `1.10.4b`). They are compared by the documented scheme in

@@ -20,7 +20,7 @@ use windows_service::{define_windows_service, service_dispatcher};
 pub const SERVICE_NAME: &str = "DiscordBridgeHelper";
 const DISPLAY_NAME: &str = "Discord Bridge Helper";
 const DESCRIPTION: &str =
-    "Запускает проверенный движок Flowseal Zapret (winws) по запросу Discord Bridge. Выполняет только фиксированный набор операций.";
+    "Запускает проверенный движок Flowseal Zapret (winws) по запросу Bridge. Выполняет только фиксированный набор операций.";
 
 type R = Result<(), Box<dyn std::error::Error>>;
 
@@ -135,7 +135,7 @@ fn our_engine_pids(paths: &Paths) -> Vec<u32> {
 }
 
 /// Stops the service (when running) and verifies that it reached STOPPED and
-/// that no winws of Discord Bridge remains. Foreign winws are ignored.
+/// that no winws of Bridge remains. Foreign winws are ignored.
 pub fn stop_and_verify(
     svc: Option<&windows_service::service::Service>,
     paths: &Paths,
