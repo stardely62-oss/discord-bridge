@@ -6,6 +6,8 @@ src-tauri/target/
 src-tauri/gen/
 # Flowseal binaries are fetched and hash-verified at build time (scripts/fetch-flowseal.mjs)
 /resources/flowseal/*/
+/resources/tg-ws-proxy/
+__pycache__/
 # Local/editor
 .DS_Store
 *.log

@@ -109,6 +109,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Fetch and verify Flowseal
         run: node scripts/fetch-flowseal.mjs
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11.9"
+      - name: Build the headless Telegram WS Proxy engine (pinned upstream commit, hash-locked packages)
+        shell: pwsh
+        run: ./telegram-proxy/build.ps1
       - name: Tests
         run: cargo test -p bridge-core -p discord-bridge-helper -p bridge-tools
       - name: Build helper service

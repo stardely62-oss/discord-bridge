@@ -71,6 +71,9 @@ pub struct Settings {
     pub voice_confirmations: BTreeMap<String, VoiceConfirmation>,
     /// What «Запустить Discord» does by default.
     pub launch_mode: LaunchMode,
+    /// Telegram WS Proxy (independent of the bypass; the secret is stored
+    /// separately, never here). Missing in older files: defaults.
+    pub telegram_proxy: bridge_telegram::TelegramProxySettings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -111,6 +114,7 @@ impl Default for Settings {
             auto_max_attempts: 8,
             voice_confirmations: BTreeMap::new(),
             launch_mode: LaunchMode::WithBypass,
+            telegram_proxy: Default::default(),
         }
     }
 }
@@ -137,6 +141,7 @@ impl Settings {
                 return Err("слишком длинный путь Discord".into());
             }
         }
+        self.telegram_proxy.validate()?;
         Ok(())
     }
 }

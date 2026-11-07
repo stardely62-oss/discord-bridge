@@ -5,6 +5,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ChevronDown,
+  Copy,
   CircleHelp,
   Download,
   Headset,
@@ -17,19 +18,22 @@ import {
   RotateCw,
   Route,
   Send,
+  Settings as SettingsIcon,
   Sparkles,
   Square,
   TriangleAlert,
   XCircle,
 } from "lucide-react";
 import { ReactNode, useState } from "react";
-import { Button, Card, Select, Skeleton } from "../../components/ui";
+import { Button, Card, Modal, Select, Skeleton } from "../../components/ui";
 import { installedTitle, loc, ownEntries } from "../../catalog/apps";
 import { strategyKind } from "../../catalog/strategies";
 import { useActivate, useAuto, useLaunch } from "../../hooks/useActivate";
 import { api, errorText } from "../../services/api";
 import { useApp, useCount, useTr } from "../../stores/app";
 import { access, type Level } from "./status";
+import type { TelegramDiagItem } from "../../services/types";
+import { actions, clientText, routeText, stateLabel } from "../../telegram/view";
 
 const tone: Record<Level, string> = { ok: "text-ok", warn: "text-warn", bad: "text-bad", unknown: "text-ink-muted", busy: "text-accent" };
 
@@ -341,46 +345,175 @@ function ZapretCard() {
   );
 }
 
-/** Telegram module card. `soon` is today's state; `active` is the designed
- * layout the future module fills in (status, method, main action). */
-export function TelegramCard({ state = "soon" }: { state?: "soon" | "active" }) {
+/** Telegram WS Proxy: a local MTProto proxy (Flowseal tg-ws-proxy engine) run
+ * by Discord Bridge as its own process, independent of Zapret. The state comes
+ * from the real process; nothing claims that Telegram, media or calls work. */
+function TelegramCard() {
+  const { telegram, setTelegram, toast, openSettings } = useApp();
   const tr = useTr();
-  const active = state === "active";
+  const [busy, setBusy] = useState<string | null>(null);
+  const [diag, setDiag] = useState<TelegramDiagItem[] | null>(null);
+  const [help, setHelp] = useState<"connect" | "noTelegram" | "disconnect" | null>(null);
+  const v = telegram;
+  const st = v?.status;
+  const label = st ? stateLabel(st.state, tr) : { level: "unknown" as Level, text: "…" };
+  const can = actions(v);
+  const run = async (key: string, f: () => Promise<void>) => {
+    setBusy(key);
+    try {
+      await f();
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      setBusy(null);
+    }
+  };
+  const start = () => run("start", async () => setTelegram(await api.telegramStart()));
+  const stop = () =>
+    run("stop", async () => {
+      setTelegram(await api.telegramStop());
+      setHelp("disconnect");
+    });
+  const restart = () => run("restart", async () => setTelegram(await api.telegramRestart()));
+  const connect = () =>
+    run("connect", async () => {
+      const r = await api.telegramOpen();
+      if (r.opened) {
+        toast("info", tr("Ссылка передана Telegram Desktop — подтвердите подключение прокси в окне Telegram", "The link was passed to Telegram Desktop — confirm the proxy in Telegram"));
+        setHelp("connect");
+      } else setHelp("noTelegram");
+    });
+  const copyLink = () =>
+    run("copy", async () => {
+      const link = await api.telegramLink();
+      await navigator.clipboard.writeText(link);
+      toast("ok", tr("Ссылка скопирована. В ней секрет прокси — не публикуйте её", "Link copied. It contains the proxy secret — do not share it"));
+    });
+  const diagnostics = () => run("diag", async () => setDiag(await api.telegramDiagnostics()));
   return (
-    <Card className={`flex flex-col p-5 ${active ? "" : "border-dashed"}`}>
+    <Card className="flex flex-col p-5">
       <div className="flex items-center gap-3">
-        <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${active ? "bg-[#2aabee]/15 text-[#2aabee]" : "bg-surface-3 text-ink-faint"}`}>
+        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#2aabee]/15 text-[#2aabee]">
           <Send className="h-[18px] w-[18px]" />
         </span>
         <div className="min-w-0 flex-1">
-          <div className={`text-sm font-semibold ${active ? "" : "text-ink-muted"}`}>Telegram</div>
-          <div className="text-xs text-ink-faint">{tr("модуль", "module")}</div>
+          <div className="text-sm font-semibold">Telegram</div>
+          <div className="text-xs text-ink-faint">WS Proxy · MTProto</div>
         </div>
-        {active ? <Pill level="ok">{tr("доступен", "reachable")}</Pill> : <Pill level="unknown">{tr("скоро", "soon")}</Pill>}
+        <Pill level={label.level}>{label.text}</Pill>
       </div>
       <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">
-        {active
-          ? tr("Telegram подключается через обход. Сообщения и звонки работают.", "Telegram connects through the bypass. Messages and calls work.")
-          : tr("Отдельный модуль для Telegram появится в одной из следующих версий. Пока он не работает.", "A dedicated Telegram module is coming in a future version. Not available yet.")}
+        {tr("Локальный прокси для Telegram Desktop. Работает отдельно от Zapret: каждый можно включать и выключать независимо.", "A local proxy for Telegram Desktop. Independent of Zapret: each can be turned on and off separately.")}
       </p>
-      <div className={`mt-3 divide-y divide-line ${active ? "" : "opacity-50"}`}>
-        <Stat label={tr("Подключение", "Connection")}>{active ? tr("через обход", "via bypass") : "—"}</Stat>
-        <Stat label={tr("Звонки", "Calls")}>{active ? tr("работают", "work") : "—"}</Stat>
-        <Stat label={tr("Способ", "Method")}>{active ? "MTProto" : "—"}</Stat>
+      {v && (
+        <div className="mt-3 divide-y divide-line">
+          <Stat label={tr("Адрес", "Address")}>
+            127.0.0.1:{v.settings.port}
+          </Stat>
+          <Stat label={tr("Маршрут", "Route")}>{routeText(v, tr)}</Stat>
+          <Stat label={tr("Клиент", "Client")}>{clientText(v, tr)}</Stat>
+          <Stat label={tr("Версия", "Version")}>{v.component.installed ? `tg-ws-proxy ${v.component.version}` : tr("не установлен", "not installed")}</Stat>
+        </div>
+      )}
+      {st?.lastError && (st.state === "error" || st.state === "notInstalled") && (
+        <div className="selectable mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{st.lastError}</div>
+      )}
+      {v?.component.problem && <div className="mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{v.component.problem}</div>}
+      {v?.pendingRestart && (
+        <div className="mt-3 flex items-center gap-2 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
+          <span className="flex-1">{tr("Настройки изменены — перезапустите прокси", "Settings changed — restart the proxy")}</span>
+        </div>
+      )}
+      <div className="mt-auto flex flex-wrap gap-2 pt-4">
+        {can.includes("start") && (
+          <Button size="sm" variant="primary" icon={<Play className="h-3.5 w-3.5" />} loading={busy === "start"} disabled={!!busy} onClick={start}>
+            {tr("Запустить", "Start")}
+          </Button>
+        )}
+        {can.includes("connect") && (
+          <Button size="sm" variant="primary" icon={<Send className="h-3.5 w-3.5" />} loading={busy === "connect"} disabled={!!busy} onClick={connect}>
+            {tr("Подключить Telegram", "Connect Telegram")}
+          </Button>
+        )}
+        {can.includes("stop") && (
+          <Button size="sm" icon={<Square className="h-3.5 w-3.5" />} loading={busy === "stop"} disabled={!!busy} onClick={stop}>
+            {tr("Остановить", "Stop")}
+          </Button>
+        )}
+        {can.includes("restart") && (
+          <Button size="sm" variant="ghost" icon={<RotateCw className="h-3.5 w-3.5" />} loading={busy === "restart"} disabled={!!busy} onClick={restart}>
+            {tr("Перезапустить", "Restart")}
+          </Button>
+        )}
+        {can.includes("copyLink") && (
+          <Button size="sm" variant="ghost" icon={<Copy className="h-3.5 w-3.5" />} disabled={!!busy} onClick={copyLink}>
+            {tr("Копировать ссылку", "Copy link")}
+          </Button>
+        )}
+        {can.includes("diagnostics") && (
+          <Button size="sm" variant="ghost" icon={<Activity className="h-3.5 w-3.5" />} loading={busy === "diag"} disabled={!!busy} onClick={diagnostics}>
+            {tr("Диагностика", "Diagnostics")}
+          </Button>
+        )}
+        {can.includes("settings") && (
+          <Button size="sm" variant="ghost" icon={<SettingsIcon className="h-3.5 w-3.5" />} onClick={() => openSettings("telegram")}>
+            {tr("Настройки", "Settings")}
+          </Button>
+        )}
       </div>
-      <div className="mt-auto flex gap-2 pt-4">
-        <Button size="sm" variant={active ? "primary" : "secondary"} disabled={!active}>
-          {tr("Открыть Telegram", "Open Telegram")}
-        </Button>
-      </div>
+      <Modal open={diag !== null} onClose={() => setDiag(null)} title={tr("Диагностика Telegram Proxy", "Telegram Proxy diagnostics")}>
+        <ul className="space-y-2.5">
+          {(diag ?? []).map((d) => (
+            <li key={d.id} className="flex items-start gap-2.5 text-[13px]">
+              <LevelIcon level={d.status} className="mt-0.5 h-4 w-4" />
+              <div className="min-w-0">
+                <div className="font-medium">{d.title}</div>
+                <div className="text-xs text-ink-muted">{d.status === "unknown" && !d.detail.includes("не проверено") ? `${tr("Не проверено", "Not checked")}: ${d.detail}` : d.detail}</div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-3 text-[11px] text-ink-faint">{tr("Открытый локальный порт не доказывает, что Telegram работает: это подтверждают только реальные подключения клиента и данные от серверов Telegram.", "An open local port does not prove that Telegram works: only real client connections and data from Telegram servers do.")}</p>
+      </Modal>
+      <Modal open={help !== null} onClose={() => setHelp(null)} title={help === "disconnect" ? tr("Прокси остановлен", "Proxy stopped") : tr("Подключение Telegram Desktop", "Connecting Telegram Desktop")}>
+        <TelegramHelp kind={help} port={v?.settings.port ?? 1443} onCopy={copyLink} />
+      </Modal>
     </Card>
+  );
+}
+
+function TelegramHelp({ kind, port, onCopy }: { kind: "connect" | "noTelegram" | "disconnect" | null; port: number; onCopy: () => void }) {
+  const tr = useTr();
+  if (kind === "disconnect")
+    return (
+      <div className="space-y-2 text-[13px] text-ink-muted">
+        <p>{tr("Если Telegram был подключён через этот прокси, он продолжит пытаться использовать 127.0.0.1 и не сможет соединиться.", "If Telegram was connected through this proxy, it keeps trying 127.0.0.1 and cannot connect.")}</p>
+        <p>{tr("Чтобы вернуть прямое соединение: Telegram Desktop → Настройки → Продвинутые настройки → Тип подключения → «Без прокси» (или отключите прокси 127.0.0.1 в списке).", "To go back to a direct connection: Telegram Desktop → Settings → Advanced → Connection type → “Disable proxy” (or turn off the 127.0.0.1 proxy in the list).")}</p>
+        <p>{tr("Zapret эта остановка не затрагивает.", "Zapret is not affected by this stop.")}</p>
+      </div>
+    );
+  return (
+    <div className="space-y-2 text-[13px] text-ink-muted">
+      {kind === "noTelegram" && <p className="text-warn">{tr("Telegram Desktop не найден: ссылки tg:// некому открыть. Установите Telegram Desktop или подключите прокси вручную.", "Telegram Desktop was not found: nothing handles tg:// links. Install Telegram Desktop or add the proxy manually.")}</p>}
+      {kind === "connect" && <p>{tr("В открывшемся окне Telegram нажмите «Подключиться» / «Включить».", "In the Telegram window that opens, press “Connect” / “Enable”.")}</p>}
+      <p className="font-medium text-ink">{tr("Вручную:", "Manually:")}</p>
+      <ol className="list-decimal space-y-1 pl-5">
+        <li>{tr("Telegram Desktop → Настройки → Продвинутые настройки → Тип подключения.", "Telegram Desktop → Settings → Advanced → Connection type.")}</li>
+        <li>{tr("«Использовать собственный прокси» → «Добавить прокси» → MTPROTO.", "“Use custom proxy” → “Add proxy” → MTPROTO.")}</li>
+        <li>{tr(`Сервер 127.0.0.1, порт ${port}, секрет — из ссылки (вставьте ссылку целиком, Telegram заполнит поля сам).`, `Server 127.0.0.1, port ${port}, secret from the link (pasting the whole link fills the fields).`)}</li>
+      </ol>
+      <Button size="sm" icon={<Copy className="h-3.5 w-3.5" />} onClick={onCopy}>
+        {tr("Копировать ссылку (содержит секрет)", "Copy link (contains the secret)")}
+      </Button>
+      <p className="text-xs">{tr("Прокси работает только на этом компьютере (127.0.0.1). После его остановки переключите Telegram обратно на прямое соединение.", "The proxy works on this computer only (127.0.0.1). After stopping it, switch Telegram back to a direct connection.")}</p>
+    </div>
   );
 }
 
 export default function HomePage() {
   const { overview, overviewError } = useApp();
   const tr = useTr();
-  const tg = (new URLSearchParams(location.search).get("tg") as "active" | null) ?? "soon";
 
   if (!overview) {
     return overviewError ? (
@@ -407,7 +540,7 @@ export default function HomePage() {
       <DiscordHero />
       <div className="grid grid-cols-2 gap-4 narrow:grid-cols-1">
         <ZapretCard />
-        <TelegramCard state={tg} />
+        <TelegramCard />
       </div>
       {(overview.settingsRecovered || overview.strategyLoadErrors.length > 0 || overview.catalogErrors.length > 0) && (
         <div className="rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-xs text-warn">

@@ -61,6 +61,18 @@ foreach ($f in $manifest.files) {
 }
 Write-Host "ok  Flowseal $($lock.version): $n files match bundle-manifest.json (archive $($lock.sha256))"
 
+# Telegram WS Proxy engine: exactly the file this build produced (and whose
+# hash is compiled into discord-bridge.exe), its manifest and licenses.
+$tgBuilt = "resources/tg-ws-proxy/discord-bridge-tg-ws-proxy.exe"
+$tgManifest = Get-Content "resources/tg-ws-proxy/tg-ws-proxy.json" -Raw | ConvertFrom-Json
+$tg = FindOne $out "discord-bridge-tg-ws-proxy.exe"
+if ((Sha $tg) -ne (Sha $tgBuilt) -or (Sha $tg) -ne $tgManifest.sha256) { throw "discord-bridge-tg-ws-proxy.exe in the installer differs from the build" }
+$tgDir = Split-Path $tg -Parent
+foreach ($f in @("tg-ws-proxy.json", "tg-ws-proxy-LICENSE.txt", "licenses/Python-LICENSE.txt", "licenses/cryptography", "licenses/certifi")) {
+  if (-not (Test-Path (Join-Path $tgDir $f))) { throw "tg-ws-proxy/$f missing in the installer" }
+}
+Write-Host "ok  Telegram WS Proxy $($tgManifest.version) ($($tgManifest.upstreamCommit.Substring(0,7))): $($tgManifest.size) bytes, sha256 $($tgManifest.sha256), licenses present"
+
 foreach ($name in @("LICENSE", "THIRD_PARTY_NOTICES.md", "WinDivert-LICENSE.txt")) {
   if (-not (Get-ChildItem -LiteralPath $out -Recurse -File | Where-Object { $_.Name -eq $name })) { throw "$name missing in the installer" }
   Write-Host "ok  $name present"

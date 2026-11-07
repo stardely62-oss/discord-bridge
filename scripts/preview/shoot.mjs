@@ -8,7 +8,7 @@ const shots = [
   ["01-home", "s=running", 1100, 720],
   ["02-home-more", "s=running", 1100, 860, "btn:Ещё"],
   ["03-home-stopped", "s=stopped", 1100, 720],
-  ["04-home-telegram-active", "s=running&tg=active", 1100, 720],
+  ["04-home-telegram-connected", "s=running&tg=connected", 1100, 720],
   ["05-home-light", "s=running&t=light", 1100, 720],
   ["06-home-narrow", "s=running", 880, 640],
   ["07-strategies-builtin", "s=running", 1100, 720, "nav:Стратегии"],

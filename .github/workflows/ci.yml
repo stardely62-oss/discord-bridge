@@ -34,6 +34,15 @@ jobs:
         run: cargo clippy -p bridge-core -p bridge-updates -p discord-bridge-helper -p bridge-tools --all-targets -- -D warnings
       - name: Tests — strategy parser, manager, manifests, IPC
         run: cargo test -p bridge-core -p bridge-updates -p discord-bridge-helper -p bridge-tools
+      - name: Telegram WS Proxy manager — lifecycle, secret, link, settings
+        run: |
+          cargo clippy -p bridge-telegram --all-targets -- -D warnings
+          cargo test -p bridge-telegram
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11.9"
+      - name: Telegram WS Proxy engine (Python) — upstream engine tests at the pinned commit and the headless runner
+        run: telegram-proxy/test-python.sh
       - name: Pinned Flowseal release builds a valid bundle
         run: |
           url=$(jq -r .url resources/flowseal.lock.json)
@@ -124,6 +133,12 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Fetch and verify Flowseal (official release, pinned SHA-256)
         run: node scripts/fetch-flowseal.mjs
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.11.9"
+      - name: Build the headless Telegram WS Proxy engine (pinned upstream commit, hash-locked packages)
+        shell: pwsh
+        run: ./telegram-proxy/build.ps1
       - name: Build helper service
         shell: pwsh
         run: |
@@ -135,6 +150,19 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests (whole workspace, Windows)
         run: cargo test --workspace
+      - name: Telegram WS Proxy — the built engine through the manager (Job Object, both processes, graceful stop)
+        env:
+          TGPROXY_ENGINE_DIR: resources/tg-ws-proxy
+        run: cargo test -p bridge-telegram --test real_engine -- --nocapture
+      - name: Telegram WS Proxy — headless runner tests on Windows
+        shell: pwsh
+        run: |
+          $venv = Join-Path $env:RUNNER_TEMP 'tgproxy-venv'
+          & "$venv/Scripts/python.exe" -m pip install --disable-pip-version-check --no-input --no-deps --only-binary=:all: --require-hashes -r telegram-proxy/requirements-test.txt
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $env:PYTHONPATH = Join-Path $env:RUNNER_TEMP 'tg-ws-proxy-src'
+          & "$venv/Scripts/python.exe" -m pytest -q -p no:cacheprovider telegram-proxy/tests
+          if ($LASTEXITCODE -ne 0) { exit 1 }
       - name: Published catalog over the network (separate from the offline tests, informational)
         # Needs GitHub; a network problem must not fail CI. The enforced
         # check is the "Published catalog" workflow.

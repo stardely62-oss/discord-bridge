@@ -50,3 +50,15 @@ cargo run -p bridge-tools -- catalog resources/flowseal/1.10.4 > scripts/preview
 cargo run -p bridge-tools -- specs > scripts/preview/specs.json
 pnpm vite --config scripts/preview/vite.config.ts   # http://localhost:1430/?s=running|stopped|onboarding
 ```
+
+## Telegram WS Proxy engine
+
+Before `pnpm tauri build` on Windows, build the headless engine (Python 3.11.9 must be on PATH):
+
+```powershell
+./telegram-proxy/build.ps1
+```
+
+It writes `resources/tg-ws-proxy/`, which is not tracked in git; the build compiles the engine's SHA-256 into the app.
+Without this step the Telegram module is reported as not installed, and the Tauri bundler stops because the resource folder is missing.
+Python tests on Linux: `telegram-proxy/test-python.sh`.

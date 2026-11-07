@@ -54,6 +54,60 @@ Check ($code -eq 0) "reinstall succeeds (exit $code)"
 Check ((BundleIntact) -eq 'ok') "Flowseal files intact ($(BundleIntact))"
 Check ((ServiceState) -eq 'Running') "helper running"
 
+Write-Host "== 2a. Telegram WS Proxy from Program Files: integrity, start, independence from Zapret, stop"
+$tgExe = "$inst\tg-ws-proxy\discord-bridge-tg-ws-proxy.exe"
+$tgMan = Get-Content "$inst\tg-ws-proxy\tg-ws-proxy.json" -Raw | ConvertFrom-Json
+Check ((Test-Path $tgExe) -and ((Get-FileHash $tgExe -Algorithm SHA256).Hash.ToLower() -eq $tgMan.sha256)) "installed engine matches its manifest"
+function StartTg([int]$port) {
+  $psi = New-Object System.Diagnostics.ProcessStartInfo $tgExe, "--stdin-config"
+  $psi.UseShellExecute = $false; $psi.CreateNoWindow = $true
+  $psi.RedirectStandardInput = $true; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true
+  $p = [System.Diagnostics.Process]::Start($psi)
+  $secret = -join ((1..32) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })
+  $p.StandardInput.WriteLine((@{ host = "127.0.0.1"; port = $port; secret = $secret; fallbackCfproxy = $false; poolSize = 0 } | ConvertTo-Json -Compress))
+  $p.StandardInput.Flush()
+  $deadline = (Get-Date).AddSeconds(90); $ready = $false
+  while ((Get-Date) -lt $deadline -and -not $p.HasExited) {
+    $line = $p.StandardOutput.ReadLine()
+    if ($null -eq $line) { break }
+    if ($line -match '"event":"ready"') { $ready = $true; break }
+  }
+  return @{ p = $p; ready = $ready; secret = $secret }
+}
+$tgPort = Get-Random -Minimum 20000 -Maximum 40000
+$svcBefore = ServiceState
+$t = StartTg $tgPort
+Check $t.ready "engine from Program Files starts listening on 127.0.0.1:$tgPort"
+Check ((ServiceState) -eq $svcBefore) "helper service untouched by the proxy start ($svcBefore)"
+# No window, no tray: the engine has no GUI (checked by --self-test at build) and no visible window.
+Start-Sleep 1
+$procs = @(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $tgExe })
+Check ($procs.Count -ge 1) "engine processes run from the installed path ($($procs.Count))"
+Check (@(Get-Process -Id $procs.ProcessId | Where-Object { $_.MainWindowHandle -ne 0 }).Count -eq 0) "no window of the engine"
+# Zapret off/on does not stop the proxy.
+$null = & "$inst\discord-bridge-helper.exe" --stop-engine 2>&1
+$c = New-Object System.Net.Sockets.TcpClient
+try { $c.Connect("127.0.0.1", $tgPort); $ok = $c.Connected } catch { $ok = $false } finally { $c.Close() }
+Check ($ok -and -not $t.p.HasExited) "proxy keeps listening after the Zapret engine is stopped"
+Start-Service DiscordBridgeHelper -ErrorAction SilentlyContinue
+# Stopping the proxy (stdin closed) ends every engine process and leaves the helper as it was.
+$svcNow = ServiceState
+$t.p.StandardInput.Close()
+Check ($t.p.WaitForExit(20000)) "engine stops when its stdin closes"
+Check ($t.p.ExitCode -eq 0) "graceful exit code 0 ($($t.p.ExitCode))"
+Start-Sleep 1
+Check (@(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq $tgExe }).Count -eq 0) "no engine process left"
+Check ((ServiceState) -eq $svcNow) "helper service untouched by the proxy stop ($svcNow)"
+$err = $t.p.StandardError.ReadToEnd()
+Check (-not $err.ToLower().Contains($t.secret)) "secret not in the engine log"
+# A port in use is reported, the other program keeps it.
+$busy = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $tgPort); $busy.Start()
+$t2 = StartTg $tgPort
+Check (-not $t2.ready) "busy port: the engine does not take it"
+$t2.p.WaitForExit(20000) | Out-Null
+Check ($t2.p.ExitCode -eq 3) "busy port reported (exit $($t2.p.ExitCode))"
+$busy.Stop()
+
 Write-Host "== 3. a foreign process holds a Flowseal file exclusively"
 $held = [IO.File]::Open("$inst\flowseal\$ver\bin\cygwin1.dll", 'Open', 'Read', 'None')
 try {

@@ -1,0 +1,10 @@
+{
+  "repository": "https://github.com/Flowseal/tg-ws-proxy",
+  "version": "1.11.4",
+  "tag": "v1.11.4",
+  "commit": "2085861957070eeea07990a522b29f42e5230210",
+  "license": "MIT",
+  "python": "3.11.9",
+  "engineFiles": "proxy/",
+  "excludedFiles": ["windows.py", "macos.py", "linux.py", "ui/", "utils/", "packaging/"]
+}

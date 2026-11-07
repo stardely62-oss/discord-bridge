@@ -52,7 +52,8 @@
       "../resources/flowseal/": "flowseal/",
       "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "../LICENSE": "LICENSE",
-      "../licenses/": "licenses/"
+      "../licenses/": "licenses/",
+      "../resources/tg-ws-proxy/": "tg-ws-proxy/"
     },
     "externalBin": [
       "binaries/discord-bridge-helper"

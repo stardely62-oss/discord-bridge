@@ -56,7 +56,7 @@ const settings = {
     { id: "steam", version: "2026-11-05", domains: ["steampowered.com", "steamcommunity.com", "steamstatic.com", "steamcontent.com", "steamserver.net", "steamgames.com", "steam-chat.com", "valvesoftware.com"] },
     { id: "twitch", version: "2026-10-01", domains: ["twitch.tv", "ttvnw.net", "jtvnw.net"] },
     { id: "telegram", version: "2026-11-05", domains: ["telegram.org", "t.me", "telegram.me", "telegra.ph", "telesco.pe", "cdn-telegram.org"], ips: ["91.108.56.0/22", "91.108.4.0/22", "91.108.8.0/22", "91.108.16.0/22", "91.108.12.0/22", "149.154.160.0/20", "91.105.192.0/23", "91.108.20.0/22", "185.76.151.0/24", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2001:67c:4e8::/48", "2001:b28:f23c::/48", "2a0a:f280::/32"] },
-  ], keepLogs: true, checkUpdatesOnStart: true,
+  ], keepLogs: true, checkUpdatesOnStart: true, telegramProxy: { autostart: false, port: 1443, fallbackCfproxy: false, h2Media: true, cfproxyDomains: [], cfproxyWorkerDomains: [] },
   autoCandidates: [], autoMaxAttempts: 8, voiceConfirmations: {}, launchMode: "withBypass",
 };
 const running = scenario !== "stopped" && scenario !== "onboarding";
@@ -102,6 +102,34 @@ const listFiles: Record<string, string> = Object.fromEntries(
     ...import.meta.glob("../../resources/flowseal/1.10.4/lists/*", { query: "?raw", import: "default", eager: true }),
   }).map(([k, v]) => [k.split("/").pop()!, v as string]),
 );
+const tgZero = { connections_total: 0, connections_active: 0, connections_ws: 0, connections_h2: 0, connections_tcp_fallback: 0, connections_cfproxy: 0, connections_fronting: 0, connections_bad: 0, connections_masked: 0, ws_errors: 0, bytes_up: 0, bytes_down: 0 };
+let tgState = q0.get("tg") ?? "stopped";
+const tgView = (next?: string) => {
+  if (next) tgState = next;
+  const connected = tgState === "connected";
+  return {
+    status: {
+      state: tgState, version: "1.11.4", host: "127.0.0.1", port: 1443, pid: tgState === "stopped" ? null : 4242, listening: ["listening", "connected"].includes(tgState),
+      clientsActive: connected ? 6 : 0, relayed: connected ? 9 : 0, dataFromTelegram: connected,
+      stats: connected ? { ...tgZero, connections_total: 9, connections_active: 6, connections_ws: 9, bytes_up: 182000, bytes_down: 2400000 } : tgZero,
+      fallbackCfproxy: false, errorCode: tgState === "error" ? "addressInUse" : null,
+      lastError: tgState === "error" ? "порт 1443 уже занят другой программой — выберите другой порт; Discord Bridge её не останавливает" : null,
+    },
+    component: tgState === "notInstalled" ? { installed: false } : { installed: true, version: "1.11.4", upstreamCommit: "2085861957070eeea07990a522b29f42e5230210" },
+    settings: settings.telegramProxy,
+    pendingRestart: false,
+  };
+};
+const tgDiag = () => [
+  { id: "process", status: "ok", title: "Процесс Telegram Proxy", detail: "запущен Discord Bridge (PID 4242)" },
+  { id: "port", status: "ok", title: "Локальный порт", detail: "127.0.0.1:1443 принимает подключения" },
+  { id: "owner", status: "ok", title: "Владелец порта", detail: "порт слушает процесс, запущенный Discord Bridge" },
+  { id: "client", status: "unknown", title: "Подключение Telegram", detail: "клиент не подключён или ещё не проверено" },
+  { id: "data", status: "unknown", title: "Обмен данными с Telegram", detail: "не проверено (нет подтверждённой передачи)" },
+  { id: "transport", status: "unknown", title: "Использованный маршрут", detail: "не проверено (соединений ещё не было)" },
+  { id: "fallback", status: "ok", title: "Резервный маршрут", detail: "выключен: только прямые соединения с Telegram" },
+  { id: "zapret", status: "ok", title: "Пересечение с Zapret", detail: "Zapret включён, но адресов Telegram в его списках и IPSet нет — соединения прокси он не обрабатывает" },
+];
 // Real core output for two engine states: with unapplied changes (default) and applied.
 const svc = () => (q.get("svc") === "applied" ? services.applied : services.pending);
 const listPage = (a: Record<string, unknown>) => {
@@ -160,6 +188,13 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   get_settings: () => settings,
   save_settings: (a) => Object.assign(settings, a.settings),
   get_bundle: () => overview().bundle,
+  // Preview only: Telegram WS Proxy states by ?tg=stopped|listening|connected|error|notInstalled.
+  telegram_get: () => tgView(),
+  telegram_start: () => tgView("listening"),
+  telegram_stop: () => tgView("stopped"),
+  telegram_restart: () => tgView("listening"),
+  telegram_diagnostics: () => tgDiag(),
+  telegram_open: () => ({ opened: false, reason: "noTelegram" }),
   services_overview: () => svc().overview,
   service_details: (a) => (svc().details as { summary: { id: string } }[]).find((d) => d.summary.id === a.id),
   flowseal_list_page: listPage,

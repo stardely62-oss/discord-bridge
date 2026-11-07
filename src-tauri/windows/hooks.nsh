@@ -46,11 +46,21 @@ AllowSkipFiles off
   ${Loop}
 !macroend
 
+; Telegram WS Proxy is an ordinary child process of Discord Bridge held in a
+; kill-on-close Job Object, so it ends with the app (the installer closes the
+; app first). Defensive: stop only a process running exactly our installed
+; executable — never anything else that may use the same port.
+!macro DB_STOP_TGPROXY
+  nsExec::ExecToLog `powershell.exe -NoProfile -NonInteractive -Command "$$p = '$INSTDIR\tg-ws-proxy\discord-bridge-tg-ws-proxy.exe'; Get-CimInstance Win32_Process | Where-Object { $$_.ExecutablePath -eq $$p } | ForEach-Object { Stop-Process -Id $$_.ProcessId -Force -ErrorAction SilentlyContinue }"`
+  Pop $9
+!macroend
+
 !macro NSIS_HOOK_PREINSTALL
   ${IfNot} ${AtLeastWin10}
     MessageBox MB_ICONSTOP "Discord Bridge требует Windows 10 или Windows 11 (x64)." /SD IDOK
     Abort
   ${EndIf}
+  !insertmacro DB_STOP_TGPROXY
   ; Upgrade: stop the running helper (this also stops its own winws through
   ; the job object). Foreign zapret installations are not touched.
   ${If} ${FileExists} "$INSTDIR\discord-bridge-helper.exe"
@@ -128,6 +138,7 @@ AllowSkipFiles off
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
+  !insertmacro DB_STOP_TGPROXY
   ; 1. TCP timestamps: offer to restore only a change Discord Bridge made and
   ;    that nobody changed since (the helper checks both).
   ${If} ${FileExists} "$INSTDIR\discord-bridge-helper.exe"

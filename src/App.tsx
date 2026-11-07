@@ -16,7 +16,7 @@ import type { ActivationResult, AutoProgress, UpdatesView } from "./services/typ
 import { Page, useApp } from "./stores/app";
 
 export default function App() {
-  const { page, refresh, refreshStrategies, setPage, setActivation, setAuto, overview, loadCatalog, loadServices, loadUpdates, setUpdates } = useApp();
+  const { page, refresh, refreshStrategies, setPage, setActivation, setAuto, overview, loadCatalog, loadServices, loadUpdates, setUpdates, loadTelegram } = useApp();
   const reduce = useReducedMotion();
   const theme = overview?.settings.theme ?? "system";
 
@@ -38,6 +38,7 @@ export default function App() {
     loadCatalog();
     loadServices();
     loadUpdates();
+    loadTelegram();
     const un: Promise<() => void>[] = [
       listen("catalog-changed", () => {
         loadCatalog();
@@ -59,11 +60,12 @@ export default function App() {
       }),
       listen<AutoProgress>("auto-progress", (e) => setAuto(e.payload)),
       listen<UpdatesView>("updates-changed", (e) => setUpdates(e.payload)),
+      listen("telegram-changed", () => loadTelegram()),
     ];
     return () => {
       un.forEach((p) => p.then((f) => f()));
     };
-  }, [refresh, refreshStrategies, setPage, setActivation, setAuto, loadCatalog, loadServices, loadUpdates, setUpdates]);
+  }, [refresh, refreshStrategies, setPage, setActivation, setAuto, loadCatalog, loadServices, loadUpdates, setUpdates, loadTelegram]);
 
   const pages: Record<Page, JSX.Element> = {
     home: <HomePage />,
