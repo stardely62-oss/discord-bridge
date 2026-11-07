@@ -7,6 +7,8 @@ src-tauri/gen/
 # Flowseal binaries are fetched and hash-verified at build time (scripts/fetch-flowseal.mjs)
 /resources/flowseal/*/
 /resources/tg-ws-proxy/
+# Third-party license notices, generated at build time (scripts/third-party-licenses.mjs)
+/resources/third-party/
 __pycache__/
 # Local/editor
 .DS_Store

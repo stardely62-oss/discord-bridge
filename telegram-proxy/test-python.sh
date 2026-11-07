@@ -17,7 +17,8 @@ python3 -m venv "$work/venv"
 "$work/venv/bin/pip" install --quiet --disable-pip-version-check --no-input --no-deps --only-binary=:all: --require-hashes \
   -r "$here/requirements-runtime.txt" -r "$here/requirements-test.txt"
 cd "$work/src"
-"$work/venv/bin/python" -m pytest -q -p no:cacheprovider tests \
+# A test that hangs (seen in CI) dumps every thread's stack after 60 s.
+"$work/venv/bin/python" -m pytest -v -p no:cacheprovider -o faulthandler_timeout=60 tests \
   --ignore=tests/test_tray_common.py --ignore=tests/test_i18n.py \
   --ignore=tests/test_windows_update.py --ignore=tests/test_linux_update.py \
   --ignore=tests/test_update_check.py --ignore=tests/test_h2_settings.py

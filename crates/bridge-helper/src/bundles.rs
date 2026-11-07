@@ -455,6 +455,48 @@ mod tests {
         assert!(lock_and_verify(&b[1]).is_err());
     }
 
+    /// LGPL-3.0 (WinDivert, Cygwin): the user may use a modified,
+    /// interface-compatible build of the library. The installed bundle is in
+    /// the admin-only install directory and its manifest is not signed, so an
+    /// administrator who replaces the DLL and records its new SHA-256 in
+    /// bundle-manifest.json gets it used; a file replaced without that
+    /// explicit step is still refused (THIRD_PARTY_NOTICES.md, "Replacing LGPL
+    /// components").
+    #[test]
+    fn a_replaced_lgpl_library_is_used_once_its_hash_is_recorded() {
+        let t = tempfile::tempdir().unwrap();
+        let builtin = t.path().join("builtin");
+        write_bundle(&builtin, "1.10.4", &std_files());
+        let dir = builtin.join("1.10.4");
+        for lib in ["bin/WinDivert.dll", "bin/cygwin1.dll"] {
+            let rebuilt: &[u8] = b"rebuilt from the corresponding source";
+            fs::write(lib.split('/').fold(dir.clone(), |a, s| a.join(s)), rebuilt).unwrap();
+            let b = &discover(&builtin, &t.path().join("none"))[0];
+            assert!(
+                lock_and_verify(b).is_err(),
+                "{lib}: silently replaced file must be refused"
+            );
+
+            let path = dir.join(MANIFEST_FILE);
+            let mut m: BundleManifest = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+            let e = m.files.iter_mut().find(|f| f.path == lib).unwrap();
+            e.sha256 = sha256_hex(rebuilt);
+            e.size = rebuilt.len() as u64;
+            fs::write(&path, serde_json::to_vec(&m).unwrap()).unwrap();
+
+            let b = &discover(&builtin, &t.path().join("none"))[0];
+            assert!(b.check_integrity().is_empty(), "{lib}");
+            assert!(
+                lock_and_verify(b).is_ok(),
+                "{lib}: recorded replacement must be accepted"
+            );
+            // The engine runs from a copy keyed by the manifest hash: the
+            // changed manifest yields a new copy with the rebuilt library.
+            let staged = crate::stage::stage_bundle(b, &t.path().join("engines")).unwrap();
+            assert_eq!(fs::read(staged.path_of(lib)).unwrap(), rebuilt, "{lib}");
+        }
+    }
+
     #[test]
     fn min_app_version_is_enforced_with_semver() {
         let mut m = sample_manifest();

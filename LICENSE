@@ -20,6 +20,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-This license covers the Discord Bridge source code only. Bundled third-party
-components (Flowseal, zapret/winws, WinDivert, Cygwin) are distributed under
-their own licenses; see THIRD_PARTY_NOTICES.md and the licenses/ directory.
+This license covers the source code of Bridge (named Discord Bridge up to
+version 0.1.0-alpha.10; the copyright holders above are unchanged) only.
+Bundled third-party components (Flowseal, zapret/winws, WinDivert, Cygwin, the
+Telegram WS Proxy engine with Python and its packages, and the Rust and npm
+packages compiled into the app) are distributed under their own licenses; see
+THIRD_PARTY_NOTICES.md and the licenses/ directory.

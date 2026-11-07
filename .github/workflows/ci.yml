@@ -42,6 +42,9 @@ jobs:
         with:
           python-version: "3.11.9"
       - name: Telegram WS Proxy engine (Python) — upstream engine tests at the pinned commit and the headless runner
+        # Normally under a minute; an upstream test once hung for the full
+        # 6-hour job limit. Fail fast instead.
+        timeout-minutes: 10
         run: telegram-proxy/test-python.sh
       - name: Pinned Flowseal release builds a valid bundle
         run: |
@@ -72,6 +75,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - name: License checks of the build scripts
+        run: node --test scripts/third-party-licenses.test.mjs
       - run: pnpm build
 
   security:
@@ -146,6 +151,8 @@ jobs:
           New-Item -ItemType Directory -Force src-tauri/binaries | Out-Null
           Copy-Item target/release/discord-bridge-helper.exe src-tauri/binaries/discord-bridge-helper-x86_64-pc-windows-msvc.exe
       - run: pnpm build
+      - name: Third-party license notices of the app binaries (allowed licenses only)
+        run: node scripts/third-party-licenses.mjs
       - name: clippy (whole workspace, Windows)
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Tests (whole workspace, Windows)

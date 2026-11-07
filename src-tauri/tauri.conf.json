@@ -7,7 +7,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build && node scripts/third-party-licenses.mjs",
     "frontendDist": "../dist"
   },
   "app": {
@@ -53,7 +53,8 @@
       "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "../LICENSE": "LICENSE",
       "../licenses/": "licenses/",
-      "../resources/tg-ws-proxy/": "tg-ws-proxy/"
+      "../resources/tg-ws-proxy/": "tg-ws-proxy/",
+      "../resources/third-party/": "licenses/third-party/"
     },
     "externalBin": [
       "binaries/discord-bridge-helper"

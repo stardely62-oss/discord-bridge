@@ -56,7 +56,11 @@ $pyroot = (& $py -c "import sys;print(sys.base_prefix)").Trim()
 Copy-Item (Join-Path $pyroot 'LICENSE.txt') (Join-Path $lic 'Python-LICENSE.txt')
 $site = (& $py -c "import sysconfig;print(sysconfig.get_paths()['purelib'])").Trim()
 $runtime = Get-Content (Join-Path $here 'requirements-runtime.txt') | Where-Object { $_ -match '^([A-Za-z0-9_.-]+)==' } | ForEach-Object { $Matches[1] }
-foreach ($name in $runtime) {
+# The PyInstaller bootloader is embedded in the executable as well
+# (GPL-2.0 with the bootloader exception, which allows distributing it with
+# any program); its license text is shipped too.
+$embedded = @($runtime) + @('pyinstaller')
+foreach ($name in $embedded) {
   $norm = ($name -replace '-', '_').ToLower()
   $di = Get-ChildItem $site -Directory | Where-Object { $_.Name -match '\.dist-info$' -and ($_.Name -split '-')[0].ToLower() -eq $norm } | Select-Object -First 1
   if (-not $di) { throw "no metadata for $name" }
