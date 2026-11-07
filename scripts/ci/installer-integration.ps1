@@ -187,8 +187,17 @@ Check ((ServiceState) -eq 'absent') "service removed"
 Check ($null -eq (Get-ItemProperty $runKey -ErrorAction SilentlyContinue).'Discord Bridge') "autostart entry removed with the program"
 Check (-not (Test-Path (Join-Path $uninstRoot 'Bridge')) -and -not (Test-Path (Join-Path $uninstRoot 'Discord Bridge'))) "no uninstall entry left"
 
+$remembered = @('HKLM:\SOFTWARE\Bridge contributors\Bridge', 'HKLM:\SOFTWARE\WOW6432Node\Bridge contributors\Bridge')
+$oldProduct = @('HKLM:\SOFTWARE\Discord Bridge contributors', 'HKLM:\SOFTWARE\WOW6432Node\Discord Bridge contributors')
+Check (-not ($oldProduct | Where-Object { Test-Path $_ })) "no registry key of the old product name left"
+
 if ($Previous) {
   Write-Host "== 6. clean install of the new build after uninstall"
+  # A plain uninstall keeps the remembered folder (standard Tauri NSIS: it is
+  # cleared only with "delete app data"), so a reinstall would go to the
+  # folder used before. Clear it to install as on a computer that never had
+  # the program.
+  $remembered | Where-Object { Test-Path $_ } | ForEach-Object { Remove-Item $_ -Recurse -Force }
   $code = Run $Setup @('/S')
   Check ($code -eq 0) "clean install (exit $code)"
   $inst = InstDir
