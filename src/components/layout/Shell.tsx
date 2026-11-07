@@ -99,9 +99,10 @@ export function Toasts() {
 }
 
 /**
- * Unobtrusive update notices (bottom right): shown once per version and
- * session, independent of the current page. Nothing is downloaded or
- * installed from here.
+ * Unobtrusive update notices at the bottom of the main column: shown once per
+ * version and session, independent of the current page. They take their own
+ * space below the page (not an overlay), so they never cover its controls.
+ * Nothing is downloaded or installed from here.
  */
 export function UpdateNotices() {
   const { updates, seenNotices, dismissNotice, openSettings, toast } = useApp();
@@ -128,7 +129,7 @@ export function UpdateNotices() {
     }
   };
   return (
-    <div aria-live="polite" className="pointer-events-none fixed bottom-4 right-4 z-40 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2">
+    <div aria-live="polite" className={notices.length ? "flex shrink-0 flex-wrap justify-end gap-2 border-t border-line px-4 py-3" : undefined}>
       <AnimatePresence>
         {notices.map((n) => {
           const t = text(n);
@@ -140,7 +141,7 @@ export function UpdateNotices() {
               initial={reduce ? false : { opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="pointer-events-auto rounded-md border border-line-strong bg-surface px-3.5 py-3 text-[13px] shadow-pop"
+              className="w-96 max-w-full rounded-md border border-line-strong bg-surface px-3.5 py-3 text-[13px]"
             >
               <div className="flex items-start gap-3">
                 <ArrowUpCircle className={`mt-0.5 h-4 w-4 shrink-0 ${n.kind === "flowsealUnavailable" ? "text-ink-muted" : "text-accent"}`} />

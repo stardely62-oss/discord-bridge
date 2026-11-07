@@ -1,21 +1,48 @@
-name: Стратегия / провайдер
-description: Какая стратегия работает или не работает у вашего провайдера
+name: Работает / не работает у моего провайдера
+description: Какая стратегия и какие сервисы работают или не работают у вашего провайдера
 labels: [strategy]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо! Такие отчёты помогают понять, что работает у разных провайдеров.
+        Не указывайте свой IP-адрес, логин и другие личные данные.
+  - type: input
+    id: version
+    attributes: { label: Версия Bridge, description: «О программе», placeholder: "0.1.1" }
+    validations: { required: true }
+  - type: dropdown
+    id: os
+    attributes: { label: Windows, options: [Windows 11 x64, Windows 10 x64, Другое] }
   - type: input
     id: isp
-    attributes: { label: Провайдер и регион }
+    attributes: { label: Провайдер и регион, placeholder: "например: Ростелеком, Москва; мобильный МТС" }
+    validations: { required: true }
   - type: input
     id: strategy
-    attributes: { label: Стратегия }
+    attributes: { label: Стратегия, placeholder: general (ALT2) }
     validations: { required: true }
-  - type: checkboxes
-    id: result
+  - type: dropdown
+    id: ipset
     attributes:
-      label: Результат
+      label: Режим IP и игровой фильтр (если меняли)
+      options: [Не менял(а), Выбранные IP, Полный список Flowseal, Flowseal + выбранные, Все адреса, Игровой фильтр включён]
+  - type: checkboxes
+    id: works
+    attributes:
+      label: Что работает
       options:
         - label: Discord открывается (текст, картинки)
-        - label: Голосовые каналы подключаются
+        - label: Голосовые каналы Discord
+        - label: YouTube (видео грузится)
+        - label: Telegram Desktop через Telegram WS Proxy
+        - label: Звонки Telegram через прокси
   - type: textarea
     id: notes
-    attributes: { label: Подробности }
+    attributes: { label: Что не работает и подробности }
+  - type: textarea
+    id: report
+    attributes:
+      label: Обезличенный отчёт (по желанию)
+      description: Диагностика → «Экспорт отчёта». Откройте файл и проверьте его перед публикацией.
+      render: json

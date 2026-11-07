@@ -1,5 +1,5 @@
 import { save } from "@tauri-apps/plugin-dialog";
-import { CheckCircle2, ChevronDown, CircleHelp, Eraser, FileOutput, MinusCircle, Mic, RefreshCw, Sparkles, Square, TriangleAlert, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleHelp, Eraser, FileOutput, MessageSquareWarning, MinusCircle, Mic, RefreshCw, Sparkles, Square, TriangleAlert, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card, PageHeader, Segmented } from "../../components/ui";
 import { confirmDialog } from "../../components/ui/confirm";
@@ -288,7 +288,7 @@ export default function DiagnosticsPage() {
       {/* Logs */}
       {tab === "logs" && (
       <Card className="p-5">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <Segmented<"app" | "engine">
             ariaLabel={tr("Журнал", "Log")}
             value={logTab}
@@ -298,7 +298,7 @@ export default function DiagnosticsPage() {
               { value: "engine", label: tr("Вывод winws", "winws output") },
             ]}
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="ghost" icon={<RefreshCw className="h-3.5 w-3.5" />} onClick={loadLogs}>
               {tr("Обновить", "Refresh")}
             </Button>
@@ -315,6 +315,14 @@ export default function DiagnosticsPage() {
             </Button>
             <Button size="sm" icon={<FileOutput className="h-3.5 w-3.5" />} onClick={exportReport}>
               {tr("Экспорт отчёта", "Export report")}
+            </Button>
+            <Button
+              size="sm"
+              icon={<MessageSquareWarning className="h-3.5 w-3.5" />}
+              title={tr("Откроется GitHub. Отчёт не отправляется сам: при желании приложите экспортированный файл, предварительно проверив его.", "Opens GitHub. Nothing is sent automatically: attach the exported report yourself if you wish, after checking it.")}
+              onClick={() => api.openExternal("report-issue").catch((e) => toast("error", errorText(e)))}
+            >
+              {tr("Сообщить о проблеме", "Report a problem")}
             </Button>
           </div>
         </div>
