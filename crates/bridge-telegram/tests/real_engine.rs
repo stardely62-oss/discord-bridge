@@ -33,7 +33,16 @@ fn the_built_engine_listens_counts_and_stops_with_all_its_processes() {
         eprintln!("TGPROXY_ENGINE_DIR not set: skipped");
         return;
     };
+    // Relative paths are relative to the workspace root (cargo runs tests in
+    // the crate directory).
     let dir = std::path::PathBuf::from(dir);
+    let dir = if dir.is_relative() {
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(dir)
+    } else {
+        dir
+    };
     let manifest: Manifest =
         serde_json::from_slice(&std::fs::read(dir.join(MANIFEST_NAME)).unwrap()).unwrap();
     let comp = locate(&dir, Some(&manifest.sha256)).expect("engine verifies");
