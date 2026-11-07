@@ -394,7 +394,10 @@ function TelegramCard() {
   const diagnostics = () => run("diag", async () => setDiag(await api.telegramDiagnostics()));
   // The same setting as Settings → Telegram Proxy (telegramProxy.autostart).
   const autostart = overview?.settings.telegramProxy?.autostart ?? false;
+  // Not disabled while saving (a disabled control drops keyboard focus);
+  // repeated presses during the save are ignored instead.
   const setAutostart = (on: boolean) =>
+    busy !== "autostart" &&
     run("autostart", async () => {
       const cur = await api.getSettings();
       await api.saveSettings({ ...cur, telegramProxy: { ...cur.telegramProxy, autostart: on } });
@@ -425,7 +428,7 @@ function TelegramCard() {
             <span className="flex-1">{portNote(v, tr) ?? tr("Настройки изменены — перезапустите прокси", "Settings changed — restart the proxy")}</span>
           </div>
         )}
-        <div className="mt-auto flex flex-wrap items-center gap-2 pt-4">
+        <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-4">
           {can.includes("start") && (
             <Button size="sm" variant="primary" icon={<Play className="h-3.5 w-3.5" />} loading={busy === "start"} disabled={!!busy} onClick={start}>
               {tr("Запустить", "Start")}
@@ -441,7 +444,7 @@ function TelegramCard() {
               {tr("Остановить", "Stop")}
             </Button>
           )}
-          <Button size="sm" variant="ghost" aria-expanded={more} aria-controls="telegram-more" onClick={() => setMore(!more)} icon={<ChevronDown className={`h-4 w-4 transition-transform ${more ? "rotate-180" : ""}`} />}>
+          <Button size="sm" variant="ghost" className="ml-auto px-2" aria-expanded={more} aria-controls="telegram-more" onClick={() => setMore(!more)} icon={<ChevronDown className={`h-4 w-4 transition-transform ${more ? "rotate-180" : ""}`} />}>
             {tr("Ещё", "More")}
           </Button>
         </div>
@@ -465,13 +468,14 @@ function TelegramCard() {
                 <Stat label={tr("Версия", "Version")}>{v.component.installed ? `tg-ws-proxy ${v.component.version}` : tr("не установлен", "not installed")}</Stat>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 p-3 narrow:grid-cols-1">
+            {/* One column in the half-width card; two when the cards stack (narrow window). */}
+            <div className="grid grid-cols-1 gap-x-4 gap-y-0.5 p-3 narrow:grid-cols-2">
               {can.includes("restart") && <ActionRow icon={<RotateCw className="h-4 w-4" />} title={tr("Перезапустить", "Restart")} hint={tr("Применить изменённые настройки", "Apply changed settings")} onClick={restart} disabled={!!busy} />}
               {can.includes("copyLink") && <ActionRow icon={<Copy className="h-4 w-4" />} title={tr("Копировать ссылку", "Copy link")} hint={tr("Содержит секрет — не публикуйте", "Contains the secret — do not share")} onClick={copyLink} disabled={!!busy} />}
               {can.includes("diagnostics") && <ActionRow icon={<Activity className="h-4 w-4" />} title={tr("Диагностика", "Diagnostics")} hint={tr("Процесс, порт, клиент, маршрут", "Process, port, client, route")} onClick={diagnostics} disabled={!!busy} />}
               {can.includes("settings") && <ActionRow icon={<SettingsIcon className="h-4 w-4" />} title={tr("Настройки", "Settings")} hint={tr("Порт, резервный маршрут, секрет", "Port, fallback route, secret")} onClick={() => openSettings("telegram")} />}
               <ActionRow icon={<Power className="h-4 w-4" />} title={tr("Запускать вместе с Bridge", "Start with Bridge")} hint={tr("Не зависит от автовключения обхода", "Independent of the bypass autostart")}>
-                <Switch label={tr("Запускать Telegram Proxy вместе с Bridge", "Start Telegram Proxy with Bridge")} checked={autostart} disabled={busy === "autostart" || !v?.component.installed} onChange={setAutostart} />
+                <Switch label={tr("Запускать Telegram Proxy вместе с Bridge", "Start Telegram Proxy with Bridge")} checked={autostart} disabled={!v?.component.installed} onChange={(on) => void setAutostart(on)} />
               </ActionRow>
             </div>
           </motion.div>
