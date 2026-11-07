@@ -13,6 +13,11 @@ custom.rules[0].args[2] = { opt: "--dpi-desync-repeats", value: "8" };
 const all = [...strategies, custom];
 const q0 = new URLSearchParams(location.search);
 const scenario = q0.get("s") ?? "running";
+// readme=1: the state used for the README screenshots — the current version,
+// a normal working setup, the real built-in catalog, no installed example
+// packs, no update notices. Still demo data: no real Windows state is read.
+const readme = q0.get("readme") === "1";
+const appVersion = readme ? (await import("../../package.json")).version : "0.1.0-alpha.2";
 const theme = new URLSearchParams(location.search).get("t") ?? "dark";
 
 const val = (a: Arg) => (a.value === undefined ? "" : typeof a.value === "string" ? a.value : "fake" in a.value ? a.value.fake : a.value.list);
@@ -51,8 +56,8 @@ const settings = {
   autoLaunchDiscord: false, closeBehavior: "tray", stopBypassOnExit: true, trayNotifications: true, discordPath: null,
   activeStrategyId: "flowseal-general-alt2", lastWorkingStrategyId: "flowseal-general-alt2", bypassEnabled: true,
   gameFilter: { mode: "disabled", tcpRange: "1024-65535", udpRange: "1024-65535" }, ipsetMode: (new URLSearchParams(location.search).get("ip") ?? "none"),
-  userLists: { general: ["example.org", "steampowered.com"], exclude: ["bank.example"], ipsetExclude: ["192.168.0.0/16"], ipsetInclude: [] },
-  installedPacks: [
+  userLists: readme ? { general: [], exclude: [], ipsetExclude: [], ipsetInclude: [] } : { general: ["example.org", "steampowered.com"], exclude: ["bank.example"], ipsetExclude: ["192.168.0.0/16"], ipsetInclude: [] },
+  installedPacks: readme ? [] : [
     { id: "steam", version: "2026-11-05", domains: ["steampowered.com", "steamcommunity.com", "steamstatic.com", "steamcontent.com", "steamserver.net", "steamgames.com", "steam-chat.com", "valvesoftware.com"] },
     { id: "twitch", version: "2026-10-01", domains: ["twitch.tv", "ttvnw.net", "jtvnw.net"] },
     { id: "telegram", version: "2026-11-05", domains: ["telegram.org", "t.me", "telegram.me", "telegra.ph", "telesco.pe", "cdn-telegram.org"], ips: ["91.108.56.0/22", "91.108.4.0/22", "91.108.8.0/22", "91.108.16.0/22", "91.108.12.0/22", "149.154.160.0/20", "91.105.192.0/23", "91.108.20.0/22", "185.76.151.0/24", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2001:67c:4e8::/48", "2001:b28:f23c::/48", "2a0a:f280::/32"] },
@@ -61,32 +66,34 @@ const settings = {
 };
 const running = scenario !== "stopped" && scenario !== "onboarding";
 const diag = {
-  at: Math.floor(Date.now() / 1000) - 240, strategyId: "flowseal-general-alt2", engineRunning: running, httpsOk: false, voice: "notChecked",
+  at: Math.floor(Date.now() / 1000) - 240, strategyId: "flowseal-general-alt2", engineRunning: running, httpsOk: readme, voice: "notChecked",
   items: [
     { id: "discord", group: "discord", title: "Клиент Discord", status: "ok", detail: "Stable 1.0.9213, запущен" },
     { id: "helper", group: "zapret", title: "Служба Discord Bridge Helper", status: "ok", detail: "служба отвечает" },
     { id: "engine", group: "zapret", title: "Zapret (winws)", status: "ok", detail: "запущен, PID 8812, стратегия «general (ALT2)»" },
     { id: "flowseal", group: "zapret", title: "Компоненты Flowseal", status: "ok", detail: "версия 1.10.4, целостность подтверждена (SHA-256)" },
-    { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "warning", detail: "выключены, а активная стратегия использует fooling=ts", hint: "Flowseal включает их автоматически; Bridge — только с вашего согласия." },
+    readme
+      ? { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "ok", detail: "включены" }
+      : { id: "tcp-ts", group: "system", title: "TCP timestamps", status: "warning", detail: "выключены, а активная стратегия использует fooling=ts", hint: "Flowseal включает их автоматически; Bridge — только с вашего согласия." },
     { id: "bfe", group: "system", title: "Base Filtering Engine", status: "ok", detail: "служба запущена" },
     { id: "conflicts", group: "system", title: "Конфликты", status: "ok", detail: "других движков обхода DPI не обнаружено" },
     ...["discord.com", "gateway.discord.gg", "cdn.discordapp.com", "updates.discord.com"].flatMap((h, i) => [
       { id: "dns:" + h, group: "dns", title: h, status: "ok", detail: `162.159.${130 + i}.23${i}`, durationMs: 12 + i * 7 },
-      { id: "https:" + h, group: "https", title: h, status: i === 3 ? "error" : "ok", detail: i === 3 ? "тайм-аут — характерно для блокировки DPI" : `ответ HTTP ${i ? 404 : 200}`, durationMs: 180 + i * 40 },
+      { id: "https:" + h, group: "https", title: h, status: i === 3 && !readme ? "error" : "ok", detail: i === 3 && !readme ? "тайм-аут — характерно для блокировки DPI" : `ответ HTTP ${i ? 404 : 200}`, durationMs: 180 + i * 40 },
     ]),
     { id: "udp:voice-rules", group: "udp", title: "UDP-правила голоса", status: "ok", detail: "есть правило для голоса (порты 19294-19344,50000-50100)" },
     { id: "voice", group: "udp", title: "Голосовые каналы", status: "unknown", detail: "голос не проверен: подключитесь к голосовому каналу и подтвердите результат" },
   ],
 };
 const overview = () => ({
-  appVersion: "0.1.0-alpha.2", settings,
+  appVersion, settings,
   discord: { installed: true, install: { channel: "Stable", root: "", exe: "C:\\Users\\user\\AppData\\Local\\Discord\\app-1.0.9213\\Discord.exe", version: "1.0.9213", custom: false }, running: false, runningPids: [] },
-  helper: { available: true, version: "0.1.0-alpha.2" },
+  helper: { available: true, version: appVersion },
   engine: running ? { state: "running", canControl: true, configHash: "ab12", pid: 8812, strategyId: "flowseal-general-alt2", strategyName: "general (ALT2)", startedAt: Math.floor(Date.now() / 1000) - 3600, argsPreview: [] } : { state: "stopped", argsPreview: [] },
   bundle: { version: "1.10.4", winwsVersion: "v72.9", source: "helper", bundles: [{ version: "1.10.4", winwsVersion: "v72.9", active: true, builtin: true, ok: true, problems: [] }] },
   activeStrategy: list().find((s) => s.id === "flowseal-general-alt2"), lastDiagnostics: diag, voice: "notChecked", autostartEnabled: true, autoRunning: false,
-  settingsRecovered: false, pendingApply: q0.get("svc") !== "applied",
-  ipSets: { mode: settings.ipsetMode, modeUsesSelected: ["selected", "flowsealPlusSelected"].includes(settings.ipsetMode), prepared: ["selected", "flowsealPlusSelected"].includes(settings.ipsetMode) ? 14 : 0, strategyId: "flowseal-general-alt2", strategy: { ipsetRules: 4, ipsetRulesWithUserExclude: 4 }, engineRunsStrategy: running, engineUpToDate: false, applied: false, packs: [{ id: "telegram", ips: 14, effective: 14 }] }, strategyLoadErrors: [], catalogErrors: [],
+  settingsRecovered: false, pendingApply: !readme && q0.get("svc") !== "applied",
+  ipSets: { mode: settings.ipsetMode, modeUsesSelected: ["selected", "flowsealPlusSelected"].includes(settings.ipsetMode), prepared: ["selected", "flowsealPlusSelected"].includes(settings.ipsetMode) ? 14 : 0, strategyId: "flowseal-general-alt2", strategy: { ipsetRules: 4, ipsetRulesWithUserExclude: 4 }, engineRunsStrategy: running, engineUpToDate: false, applied: false, packs: readme ? [] : [{ id: "telegram", ips: 14, effective: 14 }] }, strategyLoadErrors: [], catalogErrors: [],
 });
 
 const specsMod = await import("./specs.json");
@@ -184,7 +191,7 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   get_resources: () => ({ fakes: ["ACTIVE_DISCORD_UDP.bin", "stun.bin", "tls_clienthello_www_google_com.bin", "quic_initial_www_google_com.bin"], lists: ["list-general.txt", "list-google.txt", "list-exclude.txt", "ipset-all.txt"] }),
   run_diagnostics: () => diag,
   diagnostics_history: () => [diag],
-  get_logs: () => ["2026-11-05T10:01:12Z INFO Bridge 0.1.0-alpha.2 started", "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
+  get_logs: () => [`2026-11-05T10:01:12Z INFO Bridge ${appVersion} started`, "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
   engine_log: () => ["winws v72.9", "windivert initialized. capture is started."],
   get_settings: () => settings,
   save_settings: (a) => Object.assign(settings, a.settings),
@@ -201,7 +208,11 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   flowseal_list_page: listPage,
   flowseal_list_text: (a) => listFiles[a.name as string] ?? "",
   // Preview only: example results (no real releases are implied).
-  updates_get: () => ({
+  updates_get: () => readme ? {
+    app: { status: "upToDate", current: appVersion, latest: appVersion, newer: false, installable: false, checkedAt: Math.floor(Date.now() / 1000) },
+    flowseal: { status: "upToDate", current: "1.10.4", latest: "1.10.4", newer: false, installable: false, checkedAt: Math.floor(Date.now() / 1000) },
+    checkingApp: false, checkingFlowseal: false,
+  } : ({
     app: { status: "available", current: "0.1.0-alpha.10", latest: "0.1.0-alpha.11", newer: true, installable: false, url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11", changelog: "Пример заметок к релизу (превью).", checkedAt: Math.floor(Date.now() / 1000) },
     flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
     checkingApp: false,

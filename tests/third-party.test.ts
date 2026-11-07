@@ -54,6 +54,12 @@ describe("third-party documentation", () => {
 describe("README download links", () => {
   const readme = read("README.md");
 
+  it("shows only screenshots that exist in the repository", () => {
+    const imgs = [...readme.matchAll(/\]\((docs\/screenshots\/[^)\s]+)\)/g)].map((m) => m[1]);
+    expect(imgs.length).toBeGreaterThanOrEqual(4);
+    for (const f of imgs) expect(fs.existsSync(path.join(root, f)), f).toBe(true);
+  });
+
   it("never sends users to releases/latest of the app repository (a Flowseal manifest release can be marked latest)", () => {
     expect(readme).not.toMatch(/stardely62-oss\/discord-bridge\/releases\/latest/);
   });

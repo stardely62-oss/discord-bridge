@@ -85,6 +85,17 @@ Flowseal) и `sources-…` (исходный код сторонних комп�
 Голосовые каналы, звонки и отдельные сервисы могут не заработать у конкретного
 провайдера даже с правильными настройками. Bridge не обещает обратного.
 
+## Как выглядит
+
+| | |
+|---|---|
+| [![Главная: Discord, Zapret и Telegram](docs/screenshots/home.png)](docs/screenshots/home.png) | [![Стратегии Flowseal](docs/screenshots/strategies.png)](docs/screenshots/strategies.png) |
+| **Главная.** Discord, Zapret и Telegram WS Proxy на одном экране | **Стратегии.** Все стратегии Flowseal, их правила и параметры |
+| [![Приложения: каталог наборов](docs/screenshots/apps.png)](docs/screenshots/apps.png) | [![Настройки Telegram Proxy](docs/screenshots/telegram.png)](docs/screenshots/telegram.png) |
+| **Приложения.** Каталог наборов и реальные списки Flowseal | **Telegram Proxy.** Автозапуск, порт, резервный маршрут |
+
+<sub>Снимки сделаны в режиме предпросмотра интерфейса (`scripts/preview`) с демонстрационными данными: статусы, версии Discord и счётчики на них примерные.</sub>
+
 ## Как это работает
 
 ```mermaid
