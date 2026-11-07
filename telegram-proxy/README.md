@@ -41,7 +41,7 @@ The runner (`tgproxy_headless.py`) is the only adaptation:
 - it stops when stdin closes, and the parent process then terminates the job.
 
 It calls the same `_run(stop_event)` entry point that the upstream tray uses.
-Two behaviours differ from the upstream program, and both are covered by tests:
+Three behaviours differ from the upstream program, all covered by tests:
 - with the relay fallback off, the hourly download of the Cloudflare relay list
   from GitHub is not started. Upstream starts it even with the fallback off,
   although the list is then unused;
