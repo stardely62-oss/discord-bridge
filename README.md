@@ -360,5 +360,7 @@ flowchart TB
 факты и открытые вопросы — в [docs/third-party-compliance.md](docs/third-party-compliance.md).
 До v0.1.0-alpha.10 проект назывался Discord Bridge.
 
+Другие проекты автора — на [stardely62-oss.github.io](https://stardely62-oss.github.io/).
+
 Bridge — независимый проект. Он не связан с Discord Inc., Google (YouTube), Telegram
 и Cloudflare и не одобрен ими. Все товарные знаки принадлежат их владельцам.
