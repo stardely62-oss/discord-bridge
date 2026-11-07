@@ -38,8 +38,8 @@ pub enum ProxyState {
     Starting,
     /// Accepting connections on the local port.
     Listening,
-    /// A client authenticated with our secret has a connection open now and
-    /// at least one connection was relayed towards Telegram.
+    /// At least one client connection that passed the secret check is being
+    /// relayed to Telegram right now (not inferred from cumulative counters).
     Connected,
     Error,
 }
@@ -56,11 +56,14 @@ pub struct ProxyStatus {
     pub started_at: Option<u64>,
     /// The engine reports its listening socket alive.
     pub listening: bool,
-    /// Client connections open now (also ones that failed the handshake).
+    /// TCP connections to the proxy open now, authorised or not (upstream
+    /// counter; not evidence of a Telegram client).
     pub clients_active: u64,
-    /// Client connections relayed towards Telegram since the start.
+    /// Authorised connections relayed to Telegram right now.
+    pub relays_active: u64,
+    /// History since the start: connections relayed towards Telegram.
     pub relayed: u64,
-    /// Bytes came back from Telegram to a client (data really flowed).
+    /// History since the start: bytes came back from Telegram to a client.
     pub data_from_telegram: bool,
     pub stats: EngineStats,
     /// The relay fallback (Cloudflare) is allowed in this run.
@@ -113,7 +116,9 @@ pub struct ProxyManager {
 }
 
 fn derive_state(s: &ProxyStatus) -> ProxyState {
-    if s.listening && s.clients_active > 0 && s.relayed > 0 {
+    // Only the current number of authorised, relayed connections counts:
+    // cumulative counters and unauthenticated clients never make "connected".
+    if s.listening && s.relays_active > 0 {
         ProxyState::Connected
     } else if s.listening {
         ProxyState::Listening
@@ -163,6 +168,13 @@ impl ProxyManager {
         }
         drop(g);
         (self.notify)();
+    }
+
+    /// The port the running process listens on (None when not running). The
+    /// saved settings may already name another port until a restart.
+    pub fn running_port(&self) -> Option<u16> {
+        let g = self.inner.lock().expect("lock");
+        g.run.as_ref().map(|_| g.status.port)
     }
 
     pub fn is_running(&self) -> bool {
@@ -565,6 +577,7 @@ impl ProxyManager {
 fn apply_stats(s: &mut ProxyStatus, stats: EngineStats) {
     s.stats = stats;
     s.clients_active = stats.connections_active;
+    s.relays_active = stats.relays_active;
     s.relayed = stats.relayed();
     s.data_from_telegram = stats.bytes_down > 0 && stats.relayed() > 0;
 }
@@ -574,8 +587,16 @@ fn meaningful(a: &ProxyStatus, b: &ProxyStatus) -> bool {
     a.state != b.state
         || a.listening != b.listening
         || a.clients_active != b.clients_active
+        || a.relays_active != b.relays_active
         || (a.relayed == 0) != (b.relayed == 0)
         || a.data_from_telegram != b.data_from_telegram
         || a.last_error != b.last_error
         || a.version != b.version
+}
+
+/// The port Telegram must use now: the running process's port while it runs
+/// (even if the saved settings name another one until a restart), otherwise
+/// the saved port.
+pub fn connection_port(saved: u16, running: Option<u16>) -> u16 {
+    running.unwrap_or(saved)
 }

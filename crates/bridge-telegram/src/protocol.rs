@@ -19,10 +19,17 @@ pub struct EngineStats {
     pub ws_errors: u64,
     pub bytes_up: u64,
     pub bytes_down: u64,
+    /// Authorised client connections being relayed to Telegram right now
+    /// (runner adapter; upstream's `connections_active` also counts clients
+    /// that have not passed — or failed — the secret check).
+    pub relays_active: u64,
+    /// The same, cumulative since the start.
+    pub relays_total: u64,
 }
 
 impl EngineStats {
-    /// Client connections that were relayed towards Telegram by any transport.
+    /// Client connections relayed towards Telegram by any transport since the
+    /// start (history — says nothing about now).
     pub fn relayed(&self) -> u64 {
         self.connections_ws
             + self.connections_h2

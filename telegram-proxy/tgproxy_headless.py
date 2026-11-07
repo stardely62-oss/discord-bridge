@@ -128,13 +128,67 @@ def emit(event: str, **fields: Any) -> None:
     sys.stdout.flush()
 
 
+class _RelayCounter:
+    """Client connections relayed to Telegram right now.
+
+    Upstream counts `connections_active` before the secret is checked and its
+    per-transport counters are cumulative, so neither says whether a Telegram
+    client is connected now. The bridging coroutines below are entered only
+    after the client's handshake verified with our secret AND the connection
+    to Telegram (or a chosen relay) was established; they return when that
+    connection ends. Counting the coroutines that are running gives the exact
+    number of authorised connections being relayed — without changing the
+    engine.
+    """
+
+    def __init__(self) -> None:
+        self.active = 0
+        self.total = 0
+
+    def wrap(self, fn):
+        async def tracked(*args, **kwargs):
+            self.active += 1
+            self.total += 1
+            try:
+                return await fn(*args, **kwargs)
+            finally:
+                self.active -= 1
+
+        tracked.__wrapped__ = fn
+        return tracked
+
+
+RELAYS = _RelayCounter()
+_TRACKED: List[Any] = []
+
+
+def install_relay_tracking() -> None:
+    """Wraps the bridging coroutines where the engine looks them up:
+    the direct WebSocket path (`proxy.tg_ws_proxy`), the relay and TCP
+    fallbacks and HTTP/2 media (`proxy.bridge`). Each relayed connection
+    passes exactly one of them. Idempotent."""
+    import proxy.bridge as br
+    import proxy.tg_ws_proxy as tgp
+    for module, name in ((tgp, "bridge_ws_reencrypt"), (br, "bridge_ws_reencrypt"),
+                         (br, "_bridge_tcp_reencrypt"), (br, "bridge_h2")):
+        fn = getattr(module, name)
+        if getattr(fn, "__wrapped__", None) is not None and (module, name) in _TRACKED:
+            continue
+        setattr(module, name, RELAYS.wrap(fn))
+        _TRACKED.append((module, name))
+
+
 def stats_snapshot() -> Dict[str, int]:
     from proxy.stats import stats
     keys = ("connections_total", "connections_active", "connections_ws",
             "connections_h2", "connections_tcp_fallback", "connections_cfproxy",
             "connections_fronting", "connections_bad", "connections_masked",
             "ws_errors", "bytes_up", "bytes_down")
-    return {k: int(getattr(stats, k, 0)) for k in keys}
+    snap = {k: int(getattr(stats, k, 0)) for k in keys}
+    # Authorised client connections relayed to Telegram now / since start.
+    snap["relays_active"] = RELAYS.active
+    snap["relays_total"] = RELAYS.total
+    return snap
 
 
 def listening() -> bool:
@@ -192,6 +246,7 @@ def apply_config(cfg: Dict[str, Any]) -> None:
     proxy_config.fake_tls_domain = ""
     proxy_config.proxy_protocol = False
     proxy_config.force_test_dc = False
+    install_relay_tracking()
     if not cfg["fallback_cfproxy"]:
         # Upstream starts its relay-list refresh (an hourly download of the
         # Cloudflare relay list from GitHub) whenever no own domains are set,

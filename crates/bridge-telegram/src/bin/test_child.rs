@@ -2,8 +2,12 @@
 //! one JSON config line on stdin, JSON events on stdout, stop on EOF/"stop".
 //! Behaviour from `test-mode.txt` in the working directory (the manager
 //! starts the engine in its own directory):
-//!   normal       listen, report stats; a client sending "auth" counts as a
-//!                relayed Telegram connection with data back
+//!   normal       listen, report stats like the real runner: every TCP client
+//!                counts in connections_active (as upstream, before any
+//!                check); a client sending "auth" is relayed to "Telegram"
+//!                (relays_active while open, cumulative ws/relays_total and
+//!                data back); one sending "bad!" fails the check
+//!                (connections_bad) and stays open until it closes
 //!   crash        ready, then exit 7
 //!   no-ready     never listen
 //!   ignore-stop  listen, ignore EOF (must be killed)
@@ -53,36 +57,60 @@ fn main() {
     let total = Arc::new(AtomicU64::new(0));
     let active = Arc::new(AtomicU64::new(0));
     let ws = Arc::new(AtomicU64::new(0));
+    let relays = Arc::new(AtomicU64::new(0));
+    let bad = Arc::new(AtomicU64::new(0));
     {
-        let (total, active, ws) = (total.clone(), active.clone(), ws.clone());
+        let (total, active, ws, relays, bad) = (
+            total.clone(),
+            active.clone(),
+            ws.clone(),
+            relays.clone(),
+            bad.clone(),
+        );
         std::thread::spawn(move || {
             for c in listener.incoming().flatten() {
                 total.fetch_add(1, Ordering::SeqCst);
                 active.fetch_add(1, Ordering::SeqCst);
-                let (active, ws) = (active.clone(), ws.clone());
+                let (active, ws, relays, bad) =
+                    (active.clone(), ws.clone(), relays.clone(), bad.clone());
                 std::thread::spawn(move || {
                     let mut c = c;
                     let mut b = [0u8; 4];
-                    if c.read_exact(&mut b).is_ok() && &b == b"auth" {
-                        ws.fetch_add(1, Ordering::SeqCst);
+                    if c.read_exact(&mut b).is_ok() {
                         let mut rest = [0u8; 1];
-                        let _ = c.read(&mut rest); // held open until the client closes
+                        if &b == b"auth" {
+                            ws.fetch_add(1, Ordering::SeqCst);
+                            relays.fetch_add(1, Ordering::SeqCst);
+                            let _ = c.read(&mut rest); // relayed until the client closes
+                            relays.fetch_sub(1, Ordering::SeqCst);
+                        } else {
+                            bad.fetch_add(1, Ordering::SeqCst);
+                            let _ = c.read(&mut rest); // drained until the client closes
+                        }
                     }
                     active.fetch_sub(1, Ordering::SeqCst);
                 });
             }
         });
     }
-    let (t2, a2, w2) = (total.clone(), active.clone(), ws.clone());
+    let (t2, a2, w2, r2, b2) = (
+        total.clone(),
+        active.clone(),
+        ws.clone(),
+        relays.clone(),
+        bad.clone(),
+    );
     std::thread::spawn(move || loop {
         let w = w2.load(Ordering::SeqCst);
         emit(
             serde_json::json!({"event":"status","listening":true,"stats":{
             "connections_total": t2.load(Ordering::SeqCst),
             "connections_active": a2.load(Ordering::SeqCst),
-            "connections_ws": w, "bytes_down": w * 100}}),
+            "connections_bad": b2.load(Ordering::SeqCst),
+            "connections_ws": w, "bytes_down": w * 100,
+            "relays_active": r2.load(Ordering::SeqCst), "relays_total": w}}),
         );
-        std::thread::sleep(Duration::from_millis(150));
+        std::thread::sleep(Duration::from_millis(100));
     });
     // Wait for EOF or "stop" on stdin.
     for l in std::io::stdin().lock().lines() {

@@ -90,6 +90,10 @@ impl TelegramRuntime {
         };
         let running = self.running.lock().expect("lock").clone();
         TelegramView {
+            connection_port: bridge_telegram::manager::connection_port(
+                settings.port,
+                self.manager.running_port(),
+            ),
             pending_restart: self.manager.is_running() && running.as_ref() != Some(settings),
             status,
             component,
@@ -117,6 +121,17 @@ pub struct TelegramView {
     pub settings: TelegramProxySettings,
     /// Running with older settings: a restart applies the saved ones.
     pub pending_restart: bool,
+    /// The port Telegram must use now (the running process's port).
+    pub connection_port: u16,
+}
+
+/// The port Telegram must use now: the running process's port, or the saved
+/// one when the proxy is not running (see `connection_port`).
+fn current_port(state: &AppState) -> u16 {
+    bridge_telegram::manager::connection_port(
+        state.settings().telegram_proxy.port,
+        state.telegram.manager.running_port(),
+    )
 }
 
 fn view(state: &AppState) -> TelegramView {
@@ -170,7 +185,7 @@ pub async fn telegram_restart(app: AppHandle) -> R<TelegramView> {
 #[tauri::command]
 pub async fn telegram_link(state: State<'_, AppState>) -> R<String> {
     let secret = state.telegram.store.load_or_create()?;
-    Ok(link::tg_link(state.settings().telegram_proxy.port, &secret))
+    Ok(link::tg_link(current_port(&state), &secret))
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -192,7 +207,7 @@ pub async fn telegram_open(app: AppHandle, state: State<'_, AppState>) -> R<Open
         });
     }
     let secret = state.telegram.store.load_or_create()?;
-    let l = link::tg_link(state.settings().telegram_proxy.port, &secret);
+    let l = link::tg_link(current_port(&state), &secret);
     link::validate_tg_link(&l)?;
     app.opener()
         .open_url(l, None::<&str>)
@@ -321,7 +336,9 @@ pub async fn telegram_diagnostics(app: AppHandle, state: State<'_, AppState>) ->
     } else {
         item("process", "warn", "Процесс Telegram Proxy", "не запущен")
     });
-    let port = s.telegram_proxy.port;
+    // The port the process really listens on (a saved but not yet applied
+    // port is reported separately).
+    let port = current_port(&state);
     let open = {
         let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
         std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_millis(800)).is_ok()
@@ -367,33 +384,48 @@ pub async fn telegram_diagnostics(app: AppHandle, state: State<'_, AppState>) ->
         ),
         None => item("owner", "unknown", "Владелец порта", "не проверено"),
     });
-    out.push(if st.clients_active > 0 && st.relayed > 0 {
+    out.push(if st.relays_active > 0 {
         item(
             "client",
             "ok",
             "Подключение Telegram",
             format!(
-                "клиент подключён с этим секретом, открытых соединений: {}",
-                st.clients_active
+                "сейчас передаются авторизованные соединения клиента: {}",
+                st.relays_active
             ),
         )
-    } else if st.stats.connections_bad > 0 && st.relayed == 0 {
+    } else if running && st.clients_active > 0 && st.stats.connections_bad > 0 {
         item(
             "client",
             "warn",
             "Подключение Telegram",
-            "были подключения с неверным секретом или протоколом — проверьте ссылку в Telegram",
+            "к прокси подключаются с неверным секретом или протоколом — обновите ссылку в Telegram",
+        )
+    } else if running && st.relayed > 0 {
+        item(
+            "client",
+            "unknown",
+            "Подключение Telegram",
+            format!(
+                "сейчас не подключён; с момента запуска передано соединений: {}",
+                st.relayed
+            ),
         )
     } else if running {
         item(
             "client",
             "unknown",
             "Подключение Telegram",
-            "клиент не подключён или ещё не проверено",
+            "не подключён (не проверено)",
         )
     } else {
         item("client", "unknown", "Подключение Telegram", "не проверено")
     });
+    if let Some(rp) = state.telegram.manager.running_port() {
+        if rp != s.telegram_proxy.port {
+            out.push(item("pending", "warn", "Изменённый порт", format!("сохранён порт {}, но прокси работает на {rp} — ссылка указывает на {rp}; перезапустите прокси, чтобы применить новый порт", s.telegram_proxy.port)));
+        }
+    }
     out.push(if st.data_from_telegram {
         item(
             "data",

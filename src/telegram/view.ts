@@ -51,13 +51,20 @@ export function routeText(v: TelegramView, tr: Tr): string {
   return v.settings.fallbackCfproxy ? tr("прямой WebSocket, резерв через Cloudflare разрешён", "direct WebSocket, Cloudflare fallback allowed") : tr("прямой WebSocket, без резервных узлов", "direct WebSocket, no relays");
 }
 
-/** Client state: only with evidence from the engine. */
+/** Client state now: only authorised connections relayed to Telegram count. */
 export function clientText(v: TelegramView, tr: Tr): string {
   const s = v.status;
-  if (s.state === "connected") return tr(`подключён (соединений: ${s.clientsActive})`, `connected (${s.clientsActive} connections)`);
-  if (s.stats.connections_bad > 0 && s.relayed === 0) return tr("подключения с неверным секретом — обновите ссылку в Telegram", "connections with a wrong secret — update the link in Telegram");
-  if (s.state === "listening") return tr("не подключён", "not connected");
-  return "—";
+  if (s.relaysActive > 0) return tr(`подключён (соединений: ${s.relaysActive})`, `connected (${s.relaysActive} connections)`);
+  if (s.state !== "listening" && s.state !== "connected") return "—";
+  if (s.clientsActive > 0 && s.stats.connections_bad > 0) return tr("подключения с неверным секретом — обновите ссылку в Telegram", "connections with a wrong secret — update the link in Telegram");
+  if (s.relayed > 0) return tr(`не подключён (ранее за сеанс: ${s.relayed})`, `not connected (earlier this run: ${s.relayed})`);
+  return tr("не подключён", "not connected");
+}
+
+/** Saved port differs from the running one: the link uses the running port. */
+export function portNote(v: TelegramView, tr: Tr): string | null {
+  if (!v.pendingRestart || v.connectionPort === v.settings.port) return null;
+  return tr(`Прокси работает на порту ${v.connectionPort}; сохранённый порт ${v.settings.port} применится после перезапуска. Ссылка сейчас указывает на ${v.connectionPort}.`, `The proxy runs on port ${v.connectionPort}; the saved port ${v.settings.port} applies after a restart. The link points at ${v.connectionPort} for now.`);
 }
 
 export function validPort(p: number): boolean {

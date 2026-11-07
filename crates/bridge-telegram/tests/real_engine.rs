@@ -85,6 +85,7 @@ fn the_built_engine_listens_counts_and_stops_with_all_its_processes() {
     });
     let st = m.status();
     assert_eq!(st.relayed, 0);
+    assert_eq!(st.relays_active, 0, "an unauthorised client is not relayed");
     assert!(!st.data_from_telegram);
     assert_eq!(
         st.state,

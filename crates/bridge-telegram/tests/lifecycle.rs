@@ -103,14 +103,14 @@ fn start_listen_connect_stop() {
     assert!(st.pid.is_some());
     // An open port alone is not "connected".
     let idle = TcpStream::connect(("127.0.0.1", s.settings.port)).unwrap();
-    std::thread::sleep(Duration::from_millis(500));
+    std::thread::sleep(Duration::from_millis(400));
     assert_eq!(s.m.status().state, ProxyState::Listening);
     drop(idle);
     // An authenticated, relayed client is.
     let mut c = TcpStream::connect(("127.0.0.1", s.settings.port)).unwrap();
     c.write_all(b"auth").unwrap();
     wait_for(&s.m, "connected", |st| {
-        st.state == ProxyState::Connected && st.data_from_telegram
+        st.state == ProxyState::Connected && st.relays_active == 1
     });
     drop(c);
     wait_for(&s.m, "client gone", |st| st.state == ProxyState::Listening);
@@ -221,4 +221,122 @@ fn an_engine_that_never_listens_times_out_once() {
     std::thread::sleep(bridge_telegram::manager::START_TIMEOUT + Duration::from_secs(2));
     assert_eq!(s.m.status().state, ProxyState::Error);
     assert_eq!(s.m.status().error_code.as_deref(), Some("startTimeout"));
+}
+
+fn auth(port: u16) -> TcpStream {
+    let mut c = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    c.write_all(b"auth").unwrap();
+    c
+}
+fn bad(port: u16) -> TcpStream {
+    let mut c = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    c.write_all(b"bad!").unwrap();
+    c
+}
+fn settle(m: &ProxyManager, what: &str, f: impl Fn(&bridge_telegram::ProxyStatus) -> bool) {
+    wait_for(m, what, &f);
+    // A few status ticks more: the state must stay as it is.
+    std::thread::sleep(Duration::from_millis(400));
+    assert!(f(&m.status()), "{what} did not hold: {:?}", m.status());
+}
+
+/// Regression: "connected" only for an authorised connection relayed now —
+/// never for wrong secrets, never from cumulative counters.
+#[test]
+fn connected_means_an_authorised_connection_relayed_now() {
+    let s = setup("normal");
+    let port = s.settings.port;
+    s.m.start(&s.comp, &s.sha, &s.settings, &s.secret).unwrap();
+    wait_for(&s.m, "listening", |st| st.state == ProxyState::Listening);
+
+    // 1. A wrong secret never gives "connected" (upstream counts it active).
+    let b1 = bad(port);
+    settle(&s.m, "wrong secret only", |st| {
+        st.stats.connections_bad == 1 && st.clients_active == 1 && st.state == ProxyState::Listening
+    });
+
+    // 2. A current authorised connection gives "connected".
+    let a1 = auth(port);
+    settle(&s.m, "authorised", |st| {
+        st.relays_active == 1 && st.state == ProxyState::Connected
+    });
+
+    // 3. All correct connections closed → not connected (bad one still open).
+    drop(a1);
+    settle(&s.m, "authorised closed", |st| {
+        st.relays_active == 0
+            && st.relayed == 1
+            && st.clients_active == 1
+            && st.state == ProxyState::Listening
+    });
+    drop(b1);
+
+    // 4. A past success, then a client with a wrong secret: the old rule
+    //    (active > 0 && relayed > 0) would say connected; it must not.
+    let b2 = bad(port);
+    settle(&s.m, "past success + wrong secret", |st| {
+        st.clients_active == 1
+            && st.relayed == 1
+            && st.data_from_telegram
+            && st.relays_active == 0
+            && st.state == ProxyState::Listening
+    });
+    drop(b2);
+
+    // 5. Counters of past connections alone never make "connected".
+    settle(&s.m, "only history", |st| {
+        st.clients_active == 0 && st.relayed == 1 && st.state == ProxyState::Listening
+    });
+
+    // And a new authorised connection is "connected" again.
+    let a2 = auth(port);
+    settle(&s.m, "authorised again", |st| {
+        st.state == ProxyState::Connected
+    });
+    drop(a2);
+    s.m.stop();
+}
+
+/// Regression: the link and the checks use the port of the running process
+/// until a restart applies a changed port.
+#[test]
+fn the_running_port_is_used_until_a_restart() {
+    use bridge_telegram::manager::connection_port;
+    let s = setup("normal");
+    let old = s.settings.port;
+    assert_eq!(s.m.running_port(), None);
+    assert_eq!(connection_port(old, s.m.running_port()), old);
+    s.m.start(&s.comp, &s.sha, &s.settings, &s.secret).unwrap();
+    wait_for(&s.m, "listening", |st| st.state == ProxyState::Listening);
+    // The user saves another port without restarting.
+    let changed = TelegramProxySettings {
+        port: free_port(),
+        ..s.settings.clone()
+    };
+    assert_eq!(s.m.running_port(), Some(old));
+    let link_port = connection_port(changed.port, s.m.running_port());
+    assert_eq!(
+        link_port, old,
+        "the link points at the port that really listens"
+    );
+    assert!(TcpStream::connect(("127.0.0.1", link_port)).is_ok());
+    assert!(
+        TcpStream::connect(("127.0.0.1", changed.port)).is_err(),
+        "nothing listens on the saved port yet"
+    );
+    // After the restart the new port is used.
+    s.m.restart(&s.comp, &s.sha, &changed, &s.secret).unwrap();
+    wait_for(&s.m, "listening on the new port", |st| {
+        st.state == ProxyState::Listening && st.port == changed.port
+    });
+    assert_eq!(
+        connection_port(changed.port, s.m.running_port()),
+        changed.port
+    );
+    assert!(TcpStream::connect(("127.0.0.1", changed.port)).is_ok());
+    s.m.stop();
+    assert_eq!(
+        connection_port(changed.port, s.m.running_port()),
+        changed.port
+    );
 }

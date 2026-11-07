@@ -33,7 +33,7 @@ import { api, errorText } from "../../services/api";
 import { useApp, useCount, useTr } from "../../stores/app";
 import { access, type Level } from "./status";
 import type { TelegramDiagItem } from "../../services/types";
-import { actions, clientText, routeText, stateLabel } from "../../telegram/view";
+import { actions, clientText, portNote, routeText, stateLabel } from "../../telegram/view";
 
 const tone: Record<Level, string> = { ok: "text-ok", warn: "text-warn", bad: "text-bad", unknown: "text-ink-muted", busy: "text-accent" };
 
@@ -408,7 +408,7 @@ function TelegramCard() {
       {v && (
         <div className="mt-3 divide-y divide-line">
           <Stat label={tr("Адрес", "Address")}>
-            127.0.0.1:{v.settings.port}
+            127.0.0.1:{v.connectionPort}
           </Stat>
           <Stat label={tr("Маршрут", "Route")}>{routeText(v, tr)}</Stat>
           <Stat label={tr("Клиент", "Client")}>{clientText(v, tr)}</Stat>
@@ -422,7 +422,7 @@ function TelegramCard() {
       {v?.pendingRestart && (
         <div className="mt-3 flex items-center gap-2 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">
           <TriangleAlert className="h-3.5 w-3.5 shrink-0" />
-          <span className="flex-1">{tr("Настройки изменены — перезапустите прокси", "Settings changed — restart the proxy")}</span>
+          <span className="flex-1">{portNote(v, tr) ?? tr("Настройки изменены — перезапустите прокси", "Settings changed — restart the proxy")}</span>
         </div>
       )}
       <div className="mt-auto flex flex-wrap gap-2 pt-4">
@@ -477,7 +477,7 @@ function TelegramCard() {
         <p className="mt-3 text-[11px] text-ink-faint">{tr("Открытый локальный порт не доказывает, что Telegram работает: это подтверждают только реальные подключения клиента и данные от серверов Telegram.", "An open local port does not prove that Telegram works: only real client connections and data from Telegram servers do.")}</p>
       </Modal>
       <Modal open={help !== null} onClose={() => setHelp(null)} title={help === "disconnect" ? tr("Прокси остановлен", "Proxy stopped") : tr("Подключение Telegram Desktop", "Connecting Telegram Desktop")}>
-        <TelegramHelp kind={help} port={v?.settings.port ?? 1443} onCopy={copyLink} />
+        <TelegramHelp kind={help} port={v?.connectionPort ?? 1443} onCopy={copyLink} />
       </Modal>
     </Card>
   );

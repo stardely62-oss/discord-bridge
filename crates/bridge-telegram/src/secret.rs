@@ -4,8 +4,15 @@
 //!
 //! The secret is never `Debug`-printed, `Display`ed or serialised. It is kept
 //! in its own file in the user's profile, apart from the settings (which can
-//! be exported with a report), with owner-only permissions where the OS
-//! allows it (the Windows profile directory is already private to the user).
+//! be exported with a report).
+//!
+//! Permissions: on Unix the file is 0600. On Windows it gets an explicit,
+//! protected DACL (no inherited entries): full control for the current user,
+//! SYSTEM and Administrators — the principals a user profile normally has, so
+//! backups and administration keep working, but nothing broader that a parent
+//! directory might grant (Users, Everyone, Authenticated Users). The DACL is
+//! set on the temporary file before the secret is written into it, kept by
+//! the rename, and re-applied when an existing file is loaded.
 
 use std::fmt;
 use std::io::Write;
@@ -88,6 +95,8 @@ impl SecretStore {
     pub fn load_or_create(&self) -> Result<Secret, String> {
         if let Ok(text) = std::fs::read_to_string(&self.path) {
             if let Ok(s) = Secret::parse_hex(&text) {
+                #[cfg(windows)]
+                acl::restrict(&self.path).map_err(|e| format!("права файла секрета: {e}"))?;
                 return Ok(s);
             }
         }
@@ -118,11 +127,180 @@ impl SecretStore {
             let mut f = opts
                 .open(&tmp)
                 .map_err(|e| format!("секрет не сохранён: {e}"))?;
+            // Restrict the still empty file before the secret goes in.
+            #[cfg(windows)]
+            acl::restrict(&tmp).map_err(|e| format!("права файла секрета: {e}"))?;
             f.write_all(format!("{}\n", s.expose_hex()).as_bytes())
                 .and_then(|_| f.sync_all())
                 .map_err(|e| format!("секрет не сохранён: {e}"))?;
         }
         std::fs::rename(&tmp, &self.path).map_err(|e| format!("секрет не сохранён: {e}"))
+    }
+}
+
+#[cfg(windows)]
+pub mod acl {
+    //! Explicit protected DACL for the secret file (see the module docs).
+    use std::path::Path;
+    use std::ptr::{null, null_mut};
+    use windows_sys::Win32::Foundation::{CloseHandle, LocalFree, HANDLE};
+    use windows_sys::Win32::Security::Authorization::{
+        ConvertSecurityDescriptorToStringSecurityDescriptorW, ConvertSidToStringSidW,
+        ConvertStringSecurityDescriptorToSecurityDescriptorW, GetNamedSecurityInfoW,
+        SetNamedSecurityInfoW, SDDL_REVISION_1, SE_FILE_OBJECT,
+    };
+    use windows_sys::Win32::Security::{
+        GetSecurityDescriptorDacl, GetTokenInformation, TokenUser, ACL, DACL_SECURITY_INFORMATION,
+        PROTECTED_DACL_SECURITY_INFORMATION, PSECURITY_DESCRIPTOR, TOKEN_QUERY, TOKEN_USER,
+    };
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+
+    fn wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain([0]).collect()
+    }
+
+    fn from_wide(p: *const u16) -> String {
+        let mut n = 0;
+        unsafe {
+            while *p.add(n) != 0 {
+                n += 1;
+            }
+            String::from_utf16_lossy(std::slice::from_raw_parts(p, n))
+        }
+    }
+
+    fn os_err() -> String {
+        std::io::Error::last_os_error().to_string()
+    }
+
+    /// String SID of the current user (from the process token).
+    pub fn current_user_sid() -> Result<String, String> {
+        unsafe {
+            let mut tok: HANDLE = null_mut();
+            if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut tok) == 0 {
+                return Err(os_err());
+            }
+            let mut len = 0u32;
+            GetTokenInformation(tok, TokenUser, null_mut(), 0, &mut len);
+            let mut buf = vec![0u8; len as usize];
+            let ok = GetTokenInformation(tok, TokenUser, buf.as_mut_ptr().cast(), len, &mut len);
+            CloseHandle(tok);
+            if ok == 0 {
+                return Err(os_err());
+            }
+            let user = &*(buf.as_ptr() as *const TOKEN_USER);
+            let mut s: *mut u16 = null_mut();
+            if ConvertSidToStringSidW(user.User.Sid, &mut s) == 0 {
+                return Err(os_err());
+            }
+            let out = from_wide(s);
+            LocalFree(s.cast());
+            Ok(out)
+        }
+    }
+
+    /// Sets the DACL of `path` from SDDL (`D:P…` = protected, no inheritance).
+    pub fn apply_sddl(path: &Path, sddl: &str) -> Result<(), String> {
+        let sddl = wide(sddl);
+        let p = wide(&path.to_string_lossy());
+        let protected = if String::from_utf16_lossy(&sddl).starts_with("D:P") {
+            PROTECTED_DACL_SECURITY_INFORMATION
+        } else {
+            0
+        };
+        unsafe {
+            let mut sd: PSECURITY_DESCRIPTOR = null_mut();
+            if ConvertStringSecurityDescriptorToSecurityDescriptorW(
+                sddl.as_ptr(),
+                SDDL_REVISION_1,
+                &mut sd,
+                null_mut(),
+            ) == 0
+            {
+                return Err(os_err());
+            }
+            let (mut present, mut defaulted) = (0, 0);
+            let mut dacl: *mut ACL = null_mut();
+            let r = if GetSecurityDescriptorDacl(sd, &mut present, &mut dacl, &mut defaulted) == 0
+                || present == 0
+            {
+                Err(os_err())
+            } else {
+                let e = SetNamedSecurityInfoW(
+                    p.as_ptr(),
+                    SE_FILE_OBJECT,
+                    DACL_SECURITY_INFORMATION | protected,
+                    null_mut(),
+                    null_mut(),
+                    dacl,
+                    null(),
+                );
+                if e == 0 {
+                    Ok(())
+                } else {
+                    Err(std::io::Error::from_raw_os_error(e as i32).to_string())
+                }
+            };
+            LocalFree(sd.cast());
+            r
+        }
+    }
+
+    /// Full control for the current user, SYSTEM and Administrators only;
+    /// inheritance from the parent directory is cut off.
+    pub fn restrict(path: &Path) -> Result<(), String> {
+        let user = current_user_sid()?;
+        apply_sddl(
+            path,
+            &format!("D:P(A;;FA;;;{user})(A;;FA;;;SY)(A;;FA;;;BA)"),
+        )
+    }
+
+    /// The file's DACL in SDDL form (for checks; contains no secret).
+    pub fn dacl_sddl(path: &Path) -> Result<String, String> {
+        let p = wide(&path.to_string_lossy());
+        unsafe {
+            let mut sd: PSECURITY_DESCRIPTOR = null_mut();
+            let e = GetNamedSecurityInfoW(
+                p.as_ptr(),
+                SE_FILE_OBJECT,
+                DACL_SECURITY_INFORMATION,
+                null_mut(),
+                null_mut(),
+                null_mut(),
+                null_mut(),
+                &mut sd,
+            );
+            if e != 0 {
+                return Err(std::io::Error::from_raw_os_error(e as i32).to_string());
+            }
+            let mut s: *mut u16 = null_mut();
+            let ok = ConvertSecurityDescriptorToStringSecurityDescriptorW(
+                sd,
+                SDDL_REVISION_1,
+                DACL_SECURITY_INFORMATION,
+                &mut s,
+                null_mut(),
+            );
+            LocalFree(sd.cast());
+            if ok == 0 {
+                return Err(os_err());
+            }
+            let out = from_wide(s);
+            LocalFree(s.cast());
+            Ok(out)
+        }
+    }
+
+    /// Trustees of the access-allowed entries of an SDDL DACL.
+    pub fn allowed_trustees(sddl: &str) -> Vec<String> {
+        sddl.split('(')
+            .skip(1)
+            .filter_map(|ace| {
+                let f: Vec<&str> = ace.trim_end_matches(')').split(';').collect();
+                (f.first() == Some(&"A")).then(|| f.last().unwrap_or(&"").to_string())
+            })
+            .collect()
     }
 }
 
@@ -194,5 +372,68 @@ mod tests {
                 0
             );
         }
+    }
+
+    /// Windows: only the user, SYSTEM and Administrators can open the secret
+    /// file — even when the parent folder grants Everyone access; no
+    /// temporary file is left; broader permissions are repaired on load.
+    #[cfg(windows)]
+    #[test]
+    fn the_secret_file_is_private_on_windows() {
+        use super::acl::{allowed_trustees, apply_sddl, current_user_sid, dacl_sddl};
+        let user = current_user_sid().unwrap();
+        let check = |p: &Path| {
+            let sddl = dacl_sddl(p).unwrap();
+            assert!(
+                sddl.starts_with("D:P"),
+                "protected DACL without inheritance: {sddl}"
+            );
+            let t = allowed_trustees(&sddl);
+            assert!(!t.is_empty());
+            for x in &t {
+                assert!(
+                    x == &user || x == "SY" || x == "BA",
+                    "unexpected trustee {x} in {sddl}"
+                );
+            }
+            sddl
+        };
+        let d = tempfile::tempdir().unwrap();
+        let parent = d.path().join("cfg");
+        std::fs::create_dir(&parent).unwrap();
+        // A careless parent folder: Everyone may read everything below it.
+        apply_sddl(&parent, &format!("D:(A;OICI;FA;;;{user})(A;OICI;FR;;;WD)")).unwrap();
+        assert!(allowed_trustees(&dacl_sddl(&parent).unwrap())
+            .iter()
+            .any(|t| t == "WD"));
+        let st = SecretStore::new(&parent);
+        let secret = st.load_or_create().unwrap();
+        let sddl = check(st.path());
+        assert!(!sddl.contains(&secret.expose_hex()));
+        let tmp: Vec<String> = std::fs::read_dir(&parent)
+            .unwrap()
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().to_string())
+            .filter(|n| n.ends_with(".tmp"))
+            .collect();
+        assert!(tmp.is_empty(), "{tmp:?}");
+        st.regenerate().unwrap();
+        check(st.path());
+        // An existing file with broad permissions is repaired on load.
+        apply_sddl(st.path(), &format!("D:(A;;FA;;;{user})(A;;FR;;;WD)")).unwrap();
+        assert!(allowed_trustees(&dacl_sddl(st.path()).unwrap())
+            .iter()
+            .any(|t| t == "WD"));
+        st.load_or_create().unwrap();
+        check(st.path());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn sddl_trustees_are_parsed() {
+        let t = super::acl::allowed_trustees(
+            "D:P(A;;FA;;;S-1-5-21-1-2-3-1001)(A;;FA;;;SY)(D;;FA;;;WD)(A;;FA;;;BA)",
+        );
+        assert_eq!(t, vec!["S-1-5-21-1-2-3-1001", "SY", "BA"]);
     }
 }

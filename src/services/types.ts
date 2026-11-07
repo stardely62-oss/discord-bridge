@@ -609,6 +609,9 @@ export interface TelegramEngineStats {
   ws_errors: number;
   bytes_up: number;
   bytes_down: number;
+  /** Authorised client connections relayed to Telegram now / since start. */
+  relays_active: number;
+  relays_total: number;
 }
 
 export interface TelegramStatus {
@@ -619,7 +622,11 @@ export interface TelegramStatus {
   pid?: number | null;
   startedAt?: number | null;
   listening: boolean;
+  /** TCP connections to the proxy now, authorised or not (no evidence of Telegram). */
   clientsActive: number;
+  /** Authorised connections relayed to Telegram right now. */
+  relaysActive: number;
+  /** History since the start. */
   relayed: number;
   dataFromTelegram: boolean;
   stats: TelegramEngineStats;
@@ -635,6 +642,8 @@ export interface TelegramView {
   settings: TelegramProxySettings;
   /** Running with older settings: a restart applies the saved ones. */
   pendingRestart: boolean;
+  /** The port Telegram must use now (the running process's port). */
+  connectionPort: number;
 }
 
 export interface TelegramDiagItem {

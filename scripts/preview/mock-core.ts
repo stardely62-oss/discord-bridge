@@ -102,7 +102,7 @@ const listFiles: Record<string, string> = Object.fromEntries(
     ...import.meta.glob("../../resources/flowseal/1.10.4/lists/*", { query: "?raw", import: "default", eager: true }),
   }).map(([k, v]) => [k.split("/").pop()!, v as string]),
 );
-const tgZero = { connections_total: 0, connections_active: 0, connections_ws: 0, connections_h2: 0, connections_tcp_fallback: 0, connections_cfproxy: 0, connections_fronting: 0, connections_bad: 0, connections_masked: 0, ws_errors: 0, bytes_up: 0, bytes_down: 0 };
+const tgZero = { connections_total: 0, connections_active: 0, connections_ws: 0, connections_h2: 0, connections_tcp_fallback: 0, connections_cfproxy: 0, connections_fronting: 0, connections_bad: 0, connections_masked: 0, ws_errors: 0, bytes_up: 0, bytes_down: 0, relays_active: 0, relays_total: 0 };
 let tgState = q0.get("tg") ?? "stopped";
 const tgView = (next?: string) => {
   if (next) tgState = next;
@@ -110,14 +110,15 @@ const tgView = (next?: string) => {
   return {
     status: {
       state: tgState, version: "1.11.4", host: "127.0.0.1", port: 1443, pid: tgState === "stopped" ? null : 4242, listening: ["listening", "connected"].includes(tgState),
-      clientsActive: connected ? 6 : 0, relayed: connected ? 9 : 0, dataFromTelegram: connected,
-      stats: connected ? { ...tgZero, connections_total: 9, connections_active: 6, connections_ws: 9, bytes_up: 182000, bytes_down: 2400000 } : tgZero,
+      clientsActive: connected ? 6 : 0, relaysActive: connected ? 6 : 0, relayed: connected ? 9 : 0, dataFromTelegram: connected,
+      stats: connected ? { ...tgZero, connections_total: 9, connections_active: 6, connections_ws: 9, bytes_up: 182000, bytes_down: 2400000, relays_active: 6, relays_total: 9 } : tgZero,
       fallbackCfproxy: false, errorCode: tgState === "error" ? "addressInUse" : null,
       lastError: tgState === "error" ? "порт 1443 уже занят другой программой — выберите другой порт; Discord Bridge её не останавливает" : null,
     },
     component: tgState === "notInstalled" ? { installed: false } : { installed: true, version: "1.11.4", upstreamCommit: "2085861957070eeea07990a522b29f42e5230210" },
     settings: settings.telegramProxy,
     pendingRestart: false,
+    connectionPort: settings.telegramProxy.port,
   };
 };
 const tgDiag = () => [
