@@ -65,6 +65,11 @@ export default function AboutPage() {
           </button>
         ))}
       </Card>
+      <div className="flex justify-end">
+        <Button size="sm" variant="ghost" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => api.openExternal("author-projects").catch((e) => toast("error", errorText(e)))}>
+          {tr("Другие проекты автора", "More projects by the author")}
+        </Button>
+      </div>
       <Card className="space-y-2 p-5 text-xs leading-relaxed text-ink-muted">
         <p>
           {tr(
