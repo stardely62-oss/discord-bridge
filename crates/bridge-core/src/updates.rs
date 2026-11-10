@@ -69,9 +69,10 @@ pub struct UpdateInfo {
     /// Page of exactly the `latest` release, built from the validated tag.
     pub url: Option<String>,
     pub error: Option<String>,
-    /// Flowseal only: a verified signed manifest allows installation.
+    /// A verified signed manifest allows installation from inside the app
+    /// (Flowseal bundle or Bridge installer).
     pub installable: bool,
-    /// Flowseal only: why a newer release cannot be installed.
+    /// Why a newer release cannot be installed from inside the app.
     pub unavailable_reason: Option<String>,
     /// Unix seconds of the check.
     pub checked_at: u64,
@@ -294,6 +295,44 @@ pub fn apply_manifest(
             ),
         ),
         Err(e) => unavailable(info, e),
+    }
+}
+
+/// App update, second stage: the newer release can be installed from inside
+/// the app only with a verified signed manifest for exactly that version.
+/// Whatever happens here, the release itself stays `Available` — the user
+/// can always install it by hand from the release page.
+pub fn apply_app_manifest(
+    info: &mut UpdateInfo,
+    fetch: ManifestFetch,
+    keys: &[&str],
+) -> Option<crate::apprelease::AppReleaseManifest> {
+    info.installable = false;
+    if info.status != UpdateStatus::Available {
+        return None;
+    }
+    let version = info.latest.clone().unwrap_or_default();
+    let bytes = match fetch {
+        // Not signed (yet): manual installation, nothing to explain.
+        ManifestFetch::NotFound => return None,
+        ManifestFetch::Failed(e) => {
+            info.unavailable_reason = Some(format!(
+                "не удалось получить подписанный манифест релиза: {e}"
+            ));
+            return None;
+        }
+        ManifestFetch::Bytes(b) => b,
+    };
+    match crate::apprelease::verify_app_release(&bytes, keys, &version) {
+        Ok(m) => {
+            info.installable = true;
+            info.unavailable_reason = None;
+            Some(m)
+        }
+        Err(e) => {
+            info.unavailable_reason = Some(format!("{e} — установка из приложения недоступна"));
+            None
+        }
     }
 }
 

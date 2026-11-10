@@ -3,11 +3,13 @@ import { useState } from "react";
 import { Button, Card, PageHeader } from "../../components/ui";
 import { api, errorText } from "../../services/api";
 import { useApp, useTr } from "../../stores/app";
+import { useAppUpdate } from "../../updates/install";
 import { appReleaseTarget } from "../../updates/notices";
 
 export default function AboutPage() {
   const { overview, updates, setUpdates, toast } = useApp();
   const tr = useTr();
+  const appUpdate = useAppUpdate();
   const upd = updates?.app ?? null;
   const [checking, setChecking] = useState(false);
   const links: [string, string, string][] = [
@@ -47,8 +49,13 @@ export default function AboutPage() {
           <Button size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={checking} onClick={check}>
             {tr("Проверить обновления", "Check for updates")}
           </Button>
+          {appUpdate.canInstall && (
+            <Button size="sm" variant="primary" loading={appUpdate.installing} onClick={appUpdate.install}>
+              {tr("Установить", "Install")}
+            </Button>
+          )}
           {appReleaseTarget(upd) && (
-            <Button size="sm" variant="primary" onClick={() => api.openExternal(appReleaseTarget(upd)!).catch((e) => toast("error", errorText(e)))}>
+            <Button size="sm" variant={appUpdate.canInstall ? "secondary" : "primary"} onClick={() => api.openExternal(appReleaseTarget(upd)!).catch((e) => toast("error", errorText(e)))}>
               {tr("Открыть релиз", "Open release")}
             </Button>
           )}

@@ -3,13 +3,21 @@
   "writeJobs": {
     "release.yml": ["publish"],
     "flowseal-manifest.yml": ["publish"],
-    "flowseal-watch.yml": ["report"]
+    "flowseal-watch.yml": ["report"],
+    "app-manifest.yml": ["publish"]
   },
   "signingJobs": {
     "flowseal-manifest.yml": {
       "sign": {
         "environment": "flowseal-sign",
         "secrets": ["FLOWSEAL_MANIFEST_SIGNING_KEY"],
+        "signer": ["node scripts/sign/sign-ed25519.mjs"]
+      }
+    },
+    "app-manifest.yml": {
+      "sign": {
+        "environment": "app-release-sign",
+        "secrets": ["APP_RELEASE_SIGNING_KEY"],
         "signer": ["node scripts/sign/sign-ed25519.mjs"]
       }
     }

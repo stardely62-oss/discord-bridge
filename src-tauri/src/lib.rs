@@ -287,6 +287,7 @@ pub fn run() {
             commands::updates::flowseal_install,
             commands::updates::flowseal_set_active,
             commands::updates::app_check_update,
+            commands::updates::app_update_install,
             commands::updates::updates_get,
             commands::updates::get_bundle,
             commands::app::quit_app,

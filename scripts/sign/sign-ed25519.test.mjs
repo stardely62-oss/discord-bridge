@@ -59,3 +59,30 @@ test("refuses a key that is not the pinned one, a missing key, and wrong Flowsea
   r = run(s, ["--expect-sha256", sha, "--expect-version", "1.2.3", "--expect-source-sha256", "c".repeat(64)]);
   assert.match(r.stderr, /reviewed archive/);
 });
+
+test("app release: signs only the reviewed version and installer, never mixed with Flowseal options", () => {
+  const s = setup();
+  const app = Buffer.from(JSON.stringify({ kind: "bridge-app-release", format: 1, version: "0.2.0", installerName: "Bridge_0.2.0_x64-setup.exe", installerSize: 20000000, installerSha256: "c".repeat(64) }));
+  fs.writeFileSync(path.join(s.dir, "payload.json"), app);
+  const h = createHash("sha256").update(app).digest("hex");
+  const ok = ["--expect-sha256", h, "--expect-app-version", "0.2.0", "--expect-installer-sha256", "c".repeat(64)];
+  const r = run(s, ok);
+  assert.equal(r.status, 0, r.stderr);
+  const env = JSON.parse(fs.readFileSync(path.join(s.dir, "out.json"), "utf8"));
+  assert.ok(verify(null, app, s.publicKey, Buffer.from(env.signature, "base64")));
+  fs.rmSync(path.join(s.dir, "out.json"));
+  for (const bad of [
+    ["--expect-sha256", h, "--expect-app-version", "0.2.1", "--expect-installer-sha256", "c".repeat(64)],
+    ["--expect-sha256", h, "--expect-app-version", "0.2.0", "--expect-installer-sha256", "d".repeat(64)],
+    ["--expect-sha256", h, "--expect-app-version", "0.2.0"],
+    ["--expect-sha256", h],
+    [...ok, ...flow],
+    ["--expect-sha256", h, ...flow],
+  ]) {
+    assert.notEqual(run(s, bad).status, 0, bad.join(" "));
+    assert.ok(!fs.existsSync(path.join(s.dir, "out.json")));
+  }
+  // A Flowseal payload is not signed as an app release, and the other way round.
+  fs.writeFileSync(path.join(s.dir, "payload.json"), payload);
+  assert.notEqual(run(s, ["--expect-sha256", sha, "--expect-app-version", "0.2.0", "--expect-installer-sha256", "c".repeat(64)]).status, 0);
+});

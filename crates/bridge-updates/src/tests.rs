@@ -113,6 +113,7 @@ async fn center(s: &Server) -> UpdateCenter {
         Endpoints {
             api: base.clone(),
             manifest_base: format!("{base}/m"),
+            download_base: format!("{base}/dl"),
         },
         &[&pk],
         APP,
@@ -240,6 +241,7 @@ async fn no_network_is_an_error() {
         Endpoints {
             api: format!("http://127.0.0.1:{port}"),
             manifest_base: format!("http://127.0.0.1:{port}/m"),
+            download_base: format!("http://127.0.0.1:{port}/dl"),
         },
         &[],
         APP,
@@ -370,4 +372,192 @@ async fn the_startup_check_runs_once_and_only_when_enabled() {
     assert!(!c2.claim_startup_check(false));
     assert_eq!(s2.total.load(Ordering::SeqCst), 0);
     assert_eq!(c2.view(), UpdatesView::default());
+}
+
+// ---------------- Installing a Bridge release from the app ----------------
+
+const NEXT: &str = "0.1.0-alpha.11";
+
+fn app_key() -> (SigningKey, String) {
+    let k = SigningKey::from_bytes(&[7u8; 32]);
+    let pk = base64::engine::general_purpose::STANDARD.encode(k.verifying_key().as_bytes());
+    (k, pk)
+}
+
+fn app_manifest_path(v: &str) -> String {
+    format!("/m/app-{v}/app-{v}.signed.json")
+}
+
+fn installer_path(v: &str) -> String {
+    format!("/dl/stardely62-oss/discord-bridge/releases/download/v{v}/Bridge_{v}_x64-setup.exe")
+}
+
+fn installer() -> Vec<u8> {
+    (0..(apprelease::MIN_INSTALLER_BYTES as usize + 123))
+        .map(|i| (i % 251) as u8)
+        .collect()
+}
+
+fn app_manifest(version: &str, body: &[u8], signer: &SigningKey) -> Vec<u8> {
+    let m = AppReleaseManifest {
+        kind: apprelease::APP_RELEASE_KIND.into(),
+        format: apprelease::APP_RELEASE_FORMAT,
+        version: version.into(),
+        installer_name: format!("Bridge_{version}_x64-setup.exe"),
+        installer_size: body.len() as u64,
+        installer_sha256: sha256_hex(body),
+    };
+    serde_json::to_vec(&bridge_core::manifest::sign_bytes(
+        &serde_json::to_vec(&m).unwrap(),
+        signer,
+    ))
+    .unwrap()
+}
+
+/// A server with a newer release and a center that trusts the app key.
+async fn app_center(s: &Server) -> UpdateCenter {
+    s.route(
+        APP_PATH,
+        ok(releases(&[
+            ("v0.1.0-alpha.11", true),
+            ("v0.1.0-alpha.10", true),
+        ])),
+    );
+    center(s).await.with_app_keys(&[&app_key().1])
+}
+
+#[tokio::test]
+async fn without_a_pinned_app_key_no_manifest_is_requested() {
+    let s = Server::default();
+    s.route(
+        APP_PATH,
+        ok(releases(&[
+            ("v0.1.0-alpha.11", true),
+            ("v0.1.0-alpha.10", true),
+        ])),
+    );
+    s.route(
+        &app_manifest_path(NEXT),
+        ok(app_manifest(NEXT, &installer(), &app_key().0)),
+    );
+    let c = center(&s).await;
+    let u = c.check_app(&http()).await;
+    assert_eq!(u.status, UpdateStatus::Available);
+    assert!(!u.installable);
+    assert!(c.app_release().is_none());
+    assert_eq!(s.hits(&app_manifest_path(NEXT)), 0);
+}
+
+#[tokio::test]
+async fn a_release_without_a_signed_manifest_stays_manual() {
+    let s = Server::default();
+    let c = app_center(&s).await;
+    let u = c.check_app(&http()).await;
+    assert_eq!(u.status, UpdateStatus::Available);
+    assert!(!u.installable);
+    assert_eq!(u.unavailable_reason, None);
+    assert!(u.url.is_some());
+    assert!(c.app_release().is_none());
+}
+
+#[tokio::test]
+async fn a_manifest_signed_with_another_key_is_not_installable() {
+    let s = Server::default();
+    // The Flowseal manifest key must not be able to sign an app release.
+    s.route(
+        &app_manifest_path(NEXT),
+        ok(app_manifest(NEXT, &installer(), &key().0)),
+    );
+    let c = app_center(&s).await;
+    let u = c.check_app(&http()).await;
+    assert_eq!(u.status, UpdateStatus::Available);
+    assert!(!u.installable);
+    assert!(u.unavailable_reason.unwrap().contains("подпись"));
+    assert!(c.app_release().is_none());
+}
+
+#[tokio::test]
+async fn a_manifest_of_another_version_is_not_installable() {
+    let s = Server::default();
+    s.route(
+        &app_manifest_path(NEXT),
+        ok(app_manifest("0.1.0-alpha.12", &installer(), &app_key().0)),
+    );
+    let c = app_center(&s).await;
+    assert!(!c.check_app(&http()).await.installable);
+    assert!(c.app_release().is_none());
+}
+
+#[tokio::test]
+async fn an_up_to_date_app_does_not_request_the_manifest() {
+    let s = Server::default();
+    s.route(APP_PATH, ok(releases(&[("v0.1.0-alpha.10", true)])));
+    let c = center(&s).await.with_app_keys(&[&app_key().1]);
+    assert_eq!(c.check_app(&http()).await.status, UpdateStatus::UpToDate);
+    assert_eq!(s.total.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn a_verified_release_is_downloaded_and_checked() {
+    let s = Server::default();
+    let body = installer();
+    s.route(
+        &app_manifest_path(NEXT),
+        ok(app_manifest(NEXT, &body, &app_key().0)),
+    );
+    s.route(&installer_path(NEXT), ok(body.clone()));
+    let c = app_center(&s).await;
+    assert!(c.check_app(&http()).await.installable);
+    let m = c.app_release().expect("verified manifest");
+    let url = c.installer_url(&m).unwrap();
+    let dir = std::env::temp_dir().join(format!("bridge-upd-test-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let dest = dir.join(&m.installer_name);
+    download_installer(&http(), &url, &m, &dest).await.unwrap();
+    assert_eq!(std::fs::read(&dest).unwrap(), body);
+    // An existing file is never overwritten.
+    assert!(download_installer(&http(), &url, &m, &dest).await.is_err());
+    assert_eq!(std::fs::read(&dest).unwrap(), body);
+
+    // Same size, different content.
+    let mut other = body.clone();
+    other[100] ^= 1;
+    s.route(&installer_path(NEXT), ok(other));
+    let bad = dir.join("changed.exe");
+    let e = download_installer(&http(), &url, &m, &bad)
+        .await
+        .unwrap_err();
+    assert!(e.contains("SHA-256"), "{e}");
+    assert!(!bad.exists());
+
+    // Longer than signed: refused before the extra bytes are kept.
+    let mut longer = body.clone();
+    longer.extend_from_slice(&[0u8; 4096]);
+    s.route(&installer_path(NEXT), ok(longer));
+    let e = download_installer(&http(), &url, &m, &bad)
+        .await
+        .unwrap_err();
+    assert!(e.contains("больше"), "{e}");
+    assert!(!bad.exists());
+
+    // Shorter than signed.
+    s.route(&installer_path(NEXT), ok(body[..body.len() - 1].to_vec()));
+    let e = download_installer(&http(), &url, &m, &bad)
+        .await
+        .unwrap_err();
+    assert!(e.contains("не полностью"), "{e}");
+    assert!(!bad.exists());
+
+    // Not found.
+    s.route(
+        &installer_path(NEXT),
+        Route {
+            status: 404,
+            ..Default::default()
+        },
+    );
+    assert!(download_installer(&http(), &url, &m, &bad).await.is_err());
+    assert!(!bad.exists());
+    let _ = std::fs::remove_dir_all(&dir);
 }

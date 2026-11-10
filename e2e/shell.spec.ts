@@ -78,3 +78,43 @@ test("onboarding: «Настрою сам» saves the choice and closes", async 
   expect((save.args.settings as { onboardingDone: boolean }).onboardingDone).toBe(true);
   await expect(dialog).toBeHidden();
 });
+
+test.describe("installing a Bridge update from the app", () => {
+  test("without a verified signed manifest only the release page is offered", async ({ app, page }) => {
+    await app.open();
+    const notice = page.getByRole("status").filter({ hasText: "Доступна новая версия Bridge" });
+    await expect(notice).toContainText("Установка вручную");
+    await expect(notice.getByRole("button", { name: "Установить" })).toHaveCount(0);
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    await expect(app.main.getByRole("button", { name: /Скачать и установить/ })).toHaveCount(0);
+    await expect(app.main.getByRole("button", { name: /Открыть релиз/ })).toBeVisible();
+  });
+
+  test("a verified release is installed only after the confirmation", async ({ app, page }) => {
+    await app.open("s=running&upd=signed");
+    const notice = page.getByRole("status").filter({ hasText: "Доступна новая версия Bridge" });
+    await expect(notice).toContainText("Подпись релиза проверена");
+    await app.calls();
+    await notice.getByRole("button", { name: "Установить" }).click();
+    const dialog = page.getByRole("dialog", { name: "Установить Bridge 0.1.0-alpha.11?" });
+    await expect(dialog).toContainText("Windows спросит разрешение администратора");
+    await dialog.getByRole("button", { name: "Отмена" }).click();
+    await expect(dialog).toBeHidden();
+    expect((await app.calls()).map((c) => c.cmd)).not.toContain("app_update_install");
+
+    await notice.getByRole("button", { name: "Установить" }).click();
+    await dialog.getByRole("button", { name: "Скачать и установить" }).click();
+    // The interface names nothing to download: the backend uses the manifest it verified.
+    expect((await app.sent("app_update_install")).args).toEqual({});
+  });
+
+  test("the same action is in Settings and About", async ({ app }) => {
+    await app.open("s=running&upd=signed");
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    await expect(app.main.getByRole("button", { name: "Скачать и установить 0.1.0-alpha.11" })).toBeVisible();
+    await app.go("О программе");
+    await expect(app.main.getByRole("button", { name: "Установить", exact: true })).toBeVisible();
+  });
+});

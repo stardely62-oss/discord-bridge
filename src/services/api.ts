@@ -103,6 +103,8 @@ export const api = {
   flowsealSetActive: (version: string) => invoke<FlowsealAction>("flowseal_set_active", { version }),
   flowsealCompat: (version: string) => invoke<CompatEntry[]>("flowseal_compat", { version }),
   appCheckUpdate: () => invoke<UpdateInfo>("app_check_update"),
+  /** Download, verify and start the installer of the release found by the last check; Bridge then exits. */
+  appUpdateInstall: () => invoke<void>("app_update_install"),
   /** Last results of both checks (the startup check may have run while hidden). */
   updatesGet: () => invoke<UpdatesView>("updates_get"),
   bundle: () => invoke<BundleState>("get_bundle"),
