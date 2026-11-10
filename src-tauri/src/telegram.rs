@@ -27,7 +27,10 @@ pub struct TelegramRuntime {
     store: SecretStore,
     dir: PathBuf,
     /// Settings the running process was started with (pending restart).
+    /// `Some` from a start until the user stops the proxy: also what the
+    /// supervisor restarts with after an unexpected exit.
     running: Mutex<Option<TelegramProxySettings>>,
+    supervisor: Mutex<bridge_telegram::supervise::Supervisor>,
 }
 
 impl TelegramRuntime {
@@ -40,6 +43,7 @@ impl TelegramRuntime {
             store: SecretStore::new(config_dir),
             dir: resource_dir.join("tg-ws-proxy"),
             running: Mutex::new(None),
+            supervisor: Mutex::new(Default::default()),
         };
         if let Err(p) = rt.component() {
             rt.manager.set_not_installed(match p {
@@ -73,6 +77,32 @@ impl TelegramRuntime {
         *self.running.lock().expect("lock") = None;
     }
 
+    /// One step of the supervisor (called about once a second): starts the
+    /// proxy again after an unexpected exit, by the rules of
+    /// `bridge_telegram::supervise`. Returns true if it was restarted.
+    pub fn supervise(&self) -> bool {
+        let wanted = self.running.lock().expect("lock").clone();
+        let state = self.manager.status().state;
+        let restart = self.supervisor.lock().expect("lock").observe(
+            state,
+            wanted.is_some(),
+            std::time::Instant::now(),
+        );
+        let Some(settings) = wanted.filter(|_| restart) else {
+            return false;
+        };
+        match self.start(&settings) {
+            Ok(()) => {
+                tracing::info!("Telegram Proxy restarted after an unexpected exit");
+                true
+            }
+            Err(e) => {
+                tracing::warn!("Telegram Proxy was not restarted: {e}");
+                false
+            }
+        }
+    }
+
     pub fn view(&self, settings: &TelegramProxySettings) -> TelegramView {
         let status = self.manager.status();
         let component = match self.component() {
@@ -95,6 +125,7 @@ impl TelegramRuntime {
                 self.manager.running_port(),
             ),
             pending_restart: self.manager.is_running() && running.as_ref() != Some(settings),
+            auto_restart_pending: self.supervisor.lock().expect("lock").pending(),
             status,
             component,
             settings: settings.clone(),
@@ -121,6 +152,8 @@ pub struct TelegramView {
     pub settings: TelegramProxySettings,
     /// Running with older settings: a restart applies the saved ones.
     pub pending_restart: bool,
+    /// The proxy exited unexpectedly and Bridge is about to start it again.
+    pub auto_restart_pending: bool,
     /// The port Telegram must use now (the running process's port).
     pub connection_port: u16,
 }
@@ -542,6 +575,24 @@ pub fn spawn_autostart(app: AppHandle) {
         match r {
             Ok(()) => tracing::info!("Telegram Proxy started at startup"),
             Err(e) => tracing::warn!("Telegram Proxy autostart failed: {e}"),
+        }
+    });
+}
+
+/// Watches the proxy and restarts it after an unexpected exit (see
+/// `TelegramRuntime::supervise`). Ends when the app is quitting.
+pub fn spawn_supervisor(app: AppHandle) {
+    std::thread::spawn(move || loop {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        let state = app.state::<AppState>();
+        if state.quitting.load(std::sync::atomic::Ordering::SeqCst) {
+            return;
+        }
+        let before = state.telegram.supervisor.lock().expect("lock").pending();
+        let restarted = state.telegram.supervise();
+        let after = state.telegram.supervisor.lock().expect("lock").pending();
+        if restarted || before != after {
+            let _ = app.emit("telegram-changed", ());
         }
     });
 }

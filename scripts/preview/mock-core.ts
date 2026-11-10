@@ -61,8 +61,8 @@ const settings = {
     { id: "steam", version: "2026-11-05", domains: ["steampowered.com", "steamcommunity.com", "steamstatic.com", "steamcontent.com", "steamserver.net", "steamgames.com", "steam-chat.com", "valvesoftware.com"] },
     { id: "twitch", version: "2026-10-01", domains: ["twitch.tv", "ttvnw.net", "jtvnw.net"] },
     { id: "telegram", version: "2026-11-05", domains: ["telegram.org", "t.me", "telegram.me", "telegra.ph", "telesco.pe", "cdn-telegram.org"], ips: ["91.108.56.0/22", "91.108.4.0/22", "91.108.8.0/22", "91.108.16.0/22", "91.108.12.0/22", "149.154.160.0/20", "91.105.192.0/23", "91.108.20.0/22", "185.76.151.0/24", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2001:67c:4e8::/48", "2001:b28:f23c::/48", "2a0a:f280::/32"] },
-  ], keepLogs: true, checkUpdatesOnStart: true, telegramProxy: { autostart: false, port: 1443, fallbackCfproxy: false, h2Media: true, cfproxyDomains: [], cfproxyWorkerDomains: [] },
-  autoCandidates: [], autoMaxAttempts: 8, voiceConfirmations: {}, launchMode: "withBypass",
+  ], keepLogs: true, checkUpdatesOnStart: true, autoInstallFlowseal: false, telegramProxy: { autostart: false, port: 1443, fallbackCfproxy: false, h2Media: true, cfproxyDomains: [], cfproxyWorkerDomains: [] },
+  autoCandidates: [], autoMaxAttempts: 8, autoCheckYoutube: false, voiceConfirmations: {}, launchMode: "withBypass",
 };
 const running = scenario !== "stopped" && scenario !== "onboarding";
 const diag = {
@@ -81,6 +81,10 @@ const diag = {
       { id: "dns:" + h, group: "dns", title: h, status: "ok", detail: `162.159.${130 + i}.23${i}`, durationMs: 12 + i * 7 },
       { id: "https:" + h, group: "https", title: h, status: i === 3 && !readme ? "error" : "ok", detail: i === 3 && !readme ? "тайм-аут — характерно для блокировки DPI" : `ответ HTTP ${i ? 404 : 200}`, durationMs: 180 + i * 40 },
     ]),
+    ...["www.youtube.com", "youtu.be", "i.ytimg.com", "redirector.googlevideo.com"].map((h, i) => ({
+      id: "youtube:" + h, group: "youtube", title: h, status: i === 3 && q0.get("yt") === "bad" ? "error" : "ok",
+      detail: i === 3 && q0.get("yt") === "bad" ? "тайм-аут — характерно для блокировки DPI" : "ответ HTTP 200 — соединение устанавливается; скорость видео не измеряется", durationMs: 150 + i * 30,
+    })),
     { id: "udp:voice-rules", group: "udp", title: "UDP-правила голоса", status: "ok", detail: "есть правило для голоса (порты 19294-19344,50000-50100)" },
     { id: "voice", group: "udp", title: "Голосовые каналы", status: "unknown", detail: "голос не проверен: подключитесь к голосовому каналу и подтвердите результат" },
   ],
@@ -125,6 +129,7 @@ const tgView = (next?: string) => {
     component: tgState === "notInstalled" ? { installed: false } : { installed: true, version: "1.11.4", upstreamCommit: "2085861957070eeea07990a522b29f42e5230210" },
     settings: settings.telegramProxy,
     pendingRestart: false,
+    autoRestartPending: q0.get("tg") === "error" && q0.get("tgr") === "1",
     connectionPort: settings.telegramProxy.port,
   };
 };

@@ -144,13 +144,63 @@ pub async fn dns_check(host: &str) -> CheckItem {
 }
 
 pub async fn https_check(client: &reqwest::Client, host: &str, url: &str) -> CheckItem {
+    http_item(client, "https", host, url).await
+}
+
+/// YouTube endpoints of Flowseal's own test list (`utils/targets.txt` of
+/// release 1.10.4): the site, the short links, the previews and the video
+/// redirector.
+pub const YOUTUBE_TARGETS: &[(&str, &str)] = &[
+    ("www.youtube.com", "https://www.youtube.com/"),
+    ("youtu.be", "https://youtu.be/"),
+    ("i.ytimg.com", "https://i.ytimg.com/"),
+    (
+        "redirector.googlevideo.com",
+        "https://redirector.googlevideo.com/",
+    ),
+];
+
+/// One YouTube endpoint (group `youtube`). An answer proves that the
+/// connection is not cut; it says nothing about the speed of video, which
+/// is not measured.
+pub async fn youtube_check(client: &reqwest::Client, host: &str, url: &str) -> CheckItem {
+    let mut it = http_item(client, "youtube", host, url).await;
+    if it.status == CheckStatus::Ok {
+        it.detail
+            .push_str(" — соединение устанавливается; скорость видео не измеряется");
+    }
+    it
+}
+
+/// YouTube criterion for Auto (when the user asked for it): every endpoint
+/// of [`YOUTUBE_TARGETS`] answers. Like the Discord criterion it is about
+/// connections, not about how well video plays.
+pub async fn youtube_probe(client: &reqwest::Client) -> Probe {
+    let mut set = tokio::task::JoinSet::new();
+    for (host, url) in YOUTUBE_TARGETS {
+        let c = client.clone();
+        set.spawn(async move { youtube_check(&c, host, url).await });
+    }
+    let mut items = Vec::new();
+    while let Some(r) = set.join_next().await {
+        if let Ok(i) = r {
+            items.push(i);
+        }
+    }
+    Probe {
+        ok: probe_verdict(YOUTUBE_TARGETS.len(), &items),
+        items,
+    }
+}
+
+async fn http_item(client: &reqwest::Client, group: &str, host: &str, url: &str) -> CheckItem {
     let t = Instant::now();
-    let id = format!("https:{host}");
+    let id = format!("{group}:{host}");
     let mut it = match client.get(url).send().await {
         // Any HTTP response proves the TLS handshake and request went through.
         Ok(r) => item(
             &id,
-            "https",
+            group,
             host,
             CheckStatus::Ok,
             format!("ответ HTTP {}", r.status().as_u16()),
@@ -165,7 +215,7 @@ pub async fn https_check(client: &reqwest::Client, host: &str, url: &str) -> Che
             };
             let mut i = item(
                 &id,
-                "https",
+                group,
                 host,
                 CheckStatus::Error,
                 format!("{kind}: {}", short_err(&e)),

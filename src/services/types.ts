@@ -288,10 +288,14 @@ export interface Settings {
   installedPacks: InstalledPack[];
   keepLogs: boolean;
   checkUpdatesOnStart: boolean;
+  /** Install a newer Flowseal at startup without asking, once the project has verified it. Off by default. */
+  autoInstallFlowseal?: boolean;
   /** Telegram WS Proxy (independent of the bypass; the secret is never here). */
   telegramProxy: TelegramProxySettings;
   autoCandidates: string[];
   autoMaxAttempts: number;
+  /** Auto keeps a strategy only if YouTube answers too. Off by default. */
+  autoCheckYoutube?: boolean;
   voiceConfirmations: Record<string, { at: number; works: boolean; strategyId: string }>;
   launchMode: "withBypass" | "withoutBypass";
 }
@@ -642,6 +646,8 @@ export interface TelegramView {
   settings: TelegramProxySettings;
   /** Running with older settings: a restart applies the saved ones. */
   pendingRestart: boolean;
+  /** The proxy exited unexpectedly and Bridge is about to start it again. */
+  autoRestartPending?: boolean;
   /** The port Telegram must use now (the running process's port). */
   connectionPort: number;
 }

@@ -240,13 +240,15 @@ function DiscordHero() {
             <Mic className={`h-3.5 w-3.5 ${tone[voice.level]}`} />
             <span className={tone[voice.level]}>{voice.text}</span>
             {running && overview.voice !== "noUdpRules" && overview.voice !== "userConfirmed" && (
-              <span className="flex gap-1">
-                <button className="rounded px-1.5 py-0.5 text-ink-muted hover:bg-surface-3 hover:text-ok" onClick={() => confirmVoice(true)}>
-                  {tr("работает", "works")}
-                </button>
-                <button className="rounded px-1.5 py-0.5 text-ink-muted hover:bg-surface-3 hover:text-bad" onClick={() => confirmVoice(false)}>
-                  {tr("нет", "no")}
-                </button>
+              // Voice cannot be checked automatically: the answer decides what Bridge treats as a working configuration.
+              <span className="flex items-center gap-1.5 rounded-md border border-line-strong bg-surface-2 py-1 pl-2.5 pr-1" role="group" aria-label={tr("Голосовые каналы Discord работают?", "Do Discord voice channels work?")}>
+                <span className="text-ink">{tr("Голос работает?", "Does voice work?")}</span>
+                <Button size="sm" variant="secondary" onClick={() => confirmVoice(true)}>
+                  {tr("Да", "Yes")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => confirmVoice(false)}>
+                  {tr("Нет", "No")}
+                </Button>
               </span>
             )}
           </div>
@@ -315,7 +317,7 @@ function ZapretCard() {
         </div>
         <Pill level={running ? "ok" : "unknown"}>{running ? tr("включён", "on") : tr("выключен", "off")}</Pill>
       </div>
-      <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{tr("Работает для Discord и выбранных приложений — игр, лаунчеров, сервисов.", "Works for Discord and the apps you choose — games, launchers, services.")}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{tr("Работает для Discord, YouTube и выбранных приложений — игр, лаунчеров, сервисов.", "Works for Discord, YouTube and the apps you choose — games, launchers, services.")}</p>
       <div className="mt-3 divide-y divide-line">
         <Stat label={tr("Стратегия", "Strategy")}>
           {st?.name ?? "—"}
@@ -421,6 +423,7 @@ function TelegramCard() {
           {tr("Локальный прокси для Telegram Desktop. Работает отдельно от Zapret: каждый можно включать и выключать независимо.", "A local proxy for Telegram Desktop. Independent of Zapret: each can be turned on and off separately.")}
         </p>
         {st?.lastError && (st.state === "error" || st.state === "notInstalled") && <div className="selectable mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{st.lastError}</div>}
+        {telegram?.autoRestartPending && <div className="mt-2 text-xs text-ink-muted" role="status">{tr("Прокси завершился неожиданно. Bridge запустит его снова через несколько секунд.", "The proxy exited unexpectedly. Bridge will start it again in a few seconds.")}</div>}
         {v?.component.problem && <div className="mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{v.component.problem}</div>}
         {v?.pendingRestart && (
           <div className="mt-3 flex items-center gap-2 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">

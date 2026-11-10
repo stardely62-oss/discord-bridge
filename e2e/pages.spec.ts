@@ -66,6 +66,14 @@ test.describe("Diagnostics", () => {
     await app.sent("run_diagnostics");
   });
 
+  test("YouTube is checked in its own group and does not change the Discord verdict", async ({ app }) => {
+    await app.open("s=running&readme=1&yt=bad");
+    await app.go("Диагностика");
+    await expect(app.main).toContainText("redirector.googlevideo.com");
+    await app.go("Главная");
+    await expect(app.main.getByRole("heading", { level: 1 })).toHaveText("Discord доступен");
+  });
+
   test("TCP timestamps are changed only after an explicit confirmation", async ({ app, page }) => {
     await app.open();
     await app.go("Диагностика");
@@ -80,12 +88,51 @@ test.describe("Settings", () => {
   test("a switch saves the changed value at once", async ({ app }) => {
     await app.open();
     await app.go("Настройки");
-    const sw = app.main.getByRole("switch", { name: "auto discord" });
+    const sw = app.main.getByRole("switch", { name: "Затем запускать Discord" });
     await expect(sw).not.toBeChecked();
     await app.calls();
     await sw.click();
     const save = await app.sent("save_settings");
     expect((save.args.settings as { autoLaunchDiscord: boolean }).autoLaunchDiscord).toBe(true);
+  });
+
+  test("the Flowseal check row appears only when a newer version exists", async ({ app }) => {
+    await app.open("s=running&readme=1");
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    await expect(app.main).toContainText("Последняя официальная");
+    await expect(app.main).not.toContainText("Проверка для Bridge");
+    await expect(app.main).not.toContainText("манифест");
+
+    await app.open("s=running");
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    await expect(app.main).toContainText("Проверка для Bridge");
+    await expect(app.main).toContainText("ещё не проверен для Bridge");
+  });
+
+  test("automatic Flowseal updates are off by default and are the user's choice", async ({ app }) => {
+    await app.open();
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    const sw = app.main.getByRole("switch", { name: "Устанавливать проверенные версии Flowseal автоматически" });
+    await expect(sw).not.toBeChecked();
+    await app.calls();
+    await sw.click();
+    const save = await app.sent("save_settings");
+    expect((save.args.settings as { autoInstallFlowseal: boolean }).autoInstallFlowseal).toBe(true);
+  });
+
+  test("requiring YouTube in auto-selection is off by default and is the user's choice", async ({ app }) => {
+    await app.open();
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обход", exact: true }).click();
+    const sw = app.main.getByRole("switch", { name: "Учитывать YouTube при автоподборе" });
+    await expect(sw).not.toBeChecked();
+    await expect(app.main).toContainText("скорость видео не измеряется");
+    await app.calls();
+    await sw.click();
+    expect(((await app.sent("save_settings")).args.settings as { autoCheckYoutube: boolean }).autoCheckYoutube).toBe(true);
   });
 
   test("all settings tabs open", async ({ app }) => {

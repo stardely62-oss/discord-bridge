@@ -101,10 +101,23 @@ pub async fn run_diagnostics(state: State<'_, AppState>) -> R<DiagnosticsReport>
             )
         });
     }
+    // YouTube at the same time: its own group, never part of the Discord verdict.
+    let youtube = diagnostics::youtube_probe(&state.http);
     let mut net = Vec::new();
-    while let Some(Ok(r)) = set.join_next().await {
-        net.push(r);
-    }
+    let (_, youtube) = tokio::join!(
+        async {
+            while let Some(Ok(r)) = set.join_next().await {
+                net.push(r);
+            }
+        },
+        youtube
+    );
+    let mut youtube = youtube.items;
+    youtube.sort_by_key(|i| {
+        diagnostics::YOUTUBE_TARGETS
+            .iter()
+            .position(|(h, _)| i.title == *h)
+    });
     net.sort_by_key(|(i, _, _)| *i);
     let api = diagnostics::api_check(&state.http).await;
     let https_items: Vec<CheckItem> = net
@@ -122,6 +135,7 @@ pub async fn run_diagnostics(state: State<'_, AppState>) -> R<DiagnosticsReport>
         items.push(h);
     }
     items.push(api);
+    items.extend(youtube);
     let voice = voice_state(&state, engine.as_ref(), active_id.as_deref());
     items.push(CheckItem {
         id: "voice".into(),

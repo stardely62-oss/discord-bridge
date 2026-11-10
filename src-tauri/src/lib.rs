@@ -159,6 +159,7 @@ pub fn run() {
             catalog_sync::spawn_periodic(handle.clone());
             commands::spawn_startup_update_check(handle.clone());
             telegram::spawn_autostart(handle.clone());
+            telegram::spawn_supervisor(handle.clone());
 
             // Lightweight watcher: detects an engine that died on its own.
             let h = handle.clone();

@@ -12,13 +12,19 @@ import DiagnosticsPage from "./pages/Diagnostics/DiagnosticsPage";
 import HomePage from "./pages/Home/HomePage";
 import SettingsPage from "./pages/Settings/SettingsPage";
 import StrategiesPage from "./pages/Strategies/StrategiesPage";
-import type { ActivationResult, AutoProgress, UpdatesView } from "./services/types";
+import type { ActivationResult, AutoProgress, FlowsealAction, UpdatesView } from "./services/types";
 import { Page, useApp } from "./stores/app";
 
 export default function App() {
-  const { page, refresh, refreshStrategies, setPage, setActivation, setAuto, overview, loadCatalog, loadServices, loadUpdates, setUpdates, loadTelegram } = useApp();
+  const { page, refresh, refreshStrategies, setPage, setActivation, setAuto, overview, loadCatalog, loadServices, loadUpdates, setUpdates, loadTelegram, toast } = useApp();
   const reduce = useReducedMotion();
   const theme = overview?.settings.theme ?? "system";
+
+  // The document language follows the interface language (screen readers, hyphenation, spell check).
+  const lang = useApp((st) => st.lang);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   // Theme: explicit choice or follow Windows.
   useEffect(() => {
@@ -61,11 +67,16 @@ export default function App() {
       listen<AutoProgress>("auto-progress", (e) => setAuto(e.payload)),
       listen<UpdatesView>("updates-changed", (e) => setUpdates(e.payload)),
       listen("telegram-changed", () => loadTelegram()),
+      // Result of the automatic Flowseal update (off by default): always shown, whatever it is.
+      listen<FlowsealAction>("flowseal-auto-update", (e) => {
+        toast(e.payload.ok ? "ok" : "error", e.payload.message);
+        refresh();
+      }),
     ];
     return () => {
       un.forEach((p) => p.then((f) => f()));
     };
-  }, [refresh, refreshStrategies, setPage, setActivation, setAuto, loadCatalog, loadServices, loadUpdates, setUpdates, loadTelegram]);
+  }, [refresh, refreshStrategies, setPage, setActivation, setAuto, loadCatalog, loadServices, loadUpdates, setUpdates, loadTelegram, toast]);
 
   const pages: Record<Page, JSX.Element> = {
     home: <HomePage />,

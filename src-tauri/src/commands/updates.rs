@@ -65,8 +65,10 @@ pub fn spawn_startup_update_check(app: AppHandle) {
             status(&v.app),
             status(&v.flowseal)
         );
+        let flowseal = v.flowseal.clone();
         let _ = app.emit("updates-changed", v);
         refresh_tray(&app, &state).await;
+        auto_install_flowseal(&app, &state, flowseal.as_ref()).await;
     });
 }
 
@@ -80,25 +82,91 @@ pub async fn flowseal_install(
     version: String,
 ) -> R<FlowsealAction> {
     zapret::ensure_not_auto(&state)?;
-    if let Err(e) = zapret::install_flowseal(&state, &version).await {
-        return Ok(FlowsealAction {
-            ok: false,
-            outcome: "installFailed".into(),
-            message: format!("Flowseal {version} не установлен: {e}. Текущая версия не изменилась"),
+    Ok(install_and_switch(&app, &state, version, false).await)
+}
+
+/// Install a verified Flowseal version and switch to it as a transaction.
+/// With `only_if_compatible` (the automatic path) the switch is skipped when
+/// a strategy of the user would break on the new version: the version stays
+/// installed and the user decides in Settings.
+pub(super) async fn install_and_switch(
+    app: &AppHandle,
+    state: &AppState,
+    version: String,
+    only_if_compatible: bool,
+) -> FlowsealAction {
+    let failed = |outcome: &str, message: String, version: String| FlowsealAction {
+        ok: false,
+        outcome: outcome.into(),
+        message,
+        version,
+    };
+    if let Err(e) = zapret::install_flowseal(state, &version).await {
+        return failed(
+            "installFailed",
+            format!("Flowseal {version} не установлен: {e}. Текущая версия не изменилась"),
             version,
-        });
+        );
     }
-    zapret::load_bundle(&state).await;
-    let r = zapret::switch_bundle(&app, &state, &version).await;
+    zapret::load_bundle(state).await;
+    if only_if_compatible {
+        match zapret::compat_report(state, &version) {
+            Ok(broken) if broken.is_empty() => {}
+            Ok(broken) => {
+                return failed(
+                    "refused",
+                    format!(
+                        "Flowseal {version} скачан и проверен, но не включён автоматически: с ним перестанут работать ваши стратегии ({}). Переключиться можно в «Настройки → Обновления»",
+                        broken.len()
+                    ),
+                    version,
+                )
+            }
+            Err(e) => {
+                return failed(
+                    "refused",
+                    format!("Flowseal {version} скачан и проверен, но не включён автоматически: {e}"),
+                    version,
+                )
+            }
+        }
+    }
+    let r = zapret::switch_bundle(app, state, &version).await;
     // The installed version changes what "newer" means.
     if r.ok {
         state
             .updates
-            .check_flowseal(&state.http, flowseal_current(&state))
+            .check_flowseal(&state.http, flowseal_current(state))
             .await;
-        updates_changed(&app, &state);
+        updates_changed(app, state);
     }
-    Ok(r)
+    r
+}
+
+/// The automatic Flowseal update (setting `autoInstallFlowseal`, off by
+/// default), once per session after the startup check. Only a version the
+/// project verified — `installable` means a signed manifest passed the
+/// pinned key — is installed; the switch is the usual transaction with a
+/// rollback, and it is skipped while Auto runs, while quitting, or when a
+/// strategy of the user would break. The result is shown to the user.
+async fn auto_install_flowseal(app: &AppHandle, state: &AppState, info: Option<&UpdateInfo>) {
+    let Some(version) = info
+        .filter(|u| u.status == upd::UpdateStatus::Available && u.installable)
+        .and_then(|u| u.latest.clone())
+    else {
+        return;
+    };
+    if !state.settings().auto_install_flowseal
+        || state.quitting.load(Ordering::SeqCst)
+        || zapret::ensure_not_auto(state).is_err()
+    {
+        return;
+    }
+    tracing::info!("automatic Flowseal update to {version}");
+    let r = install_and_switch(app, state, version, true).await;
+    tracing::info!("automatic Flowseal update: {} — {}", r.outcome, r.message);
+    let _ = app.emit("flowseal-auto-update", r);
+    refresh_tray(app, state).await;
 }
 
 #[tauri::command]

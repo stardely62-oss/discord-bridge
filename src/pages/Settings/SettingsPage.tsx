@@ -263,16 +263,16 @@ export default function SettingsPage() {
               }
               description={tr("Тихо, свёрнутым в трей. Меняет автозагрузку Windows для вашего пользователя.", "Quietly, in the tray. Changes Windows startup for your user.")}
             >
-              <Switch label="autostart" checked={overview?.autostartEnabled ?? s.launchAtStartup} onChange={(v) => set("launchAtStartup", v)} />
+              <Switch label={tr("Запускать вместе с Windows", "Start with Windows")} checked={overview?.autostartEnabled ?? s.launchAtStartup} onChange={(v) => set("launchAtStartup", v)} />
             </SettingRow>
             <SettingRow title={tr("Запускать свёрнутым", "Start minimized")}>
-              <Switch label="minimized" checked={s.startMinimized} onChange={(v) => set("startMinimized", v)} />
+              <Switch label={tr("Запускать свёрнутым", "Start minimized")} checked={s.startMinimized} onChange={(v) => set("startMinimized", v)} />
             </SettingRow>
             <SettingRow title={tr("Сразу включать обход", "Turn on the bypass at start")} description={tr("При запуске приложения.", "When the app starts.")}>
-              <Switch label="auto bypass" checked={s.autoEnableBypass} onChange={(v) => set("autoEnableBypass", v)} />
+              <Switch label={tr("Сразу включать обход", "Turn on the bypass at start")} checked={s.autoEnableBypass} onChange={(v) => set("autoEnableBypass", v)} />
             </SettingRow>
             <SettingRow title={tr("Затем запускать Discord", "Then launch Discord")}>
-              <Switch label="auto discord" checked={s.autoLaunchDiscord} onChange={(v) => set("autoLaunchDiscord", v)} />
+              <Switch label={tr("Затем запускать Discord", "Then launch Discord")} checked={s.autoLaunchDiscord} onChange={(v) => set("autoLaunchDiscord", v)} />
             </SettingRow>
           </Section>
 
@@ -282,7 +282,7 @@ export default function SettingsPage() {
               description={s.launchMode === "withBypass" ? tr("Сначала включает обход. Если он не запустится, предложит открыть Discord без него.", "Starts the bypass first. If it fails, offers to open Discord without it.") : tr("Просто открывает Discord, обход не трогает.", "Just opens Discord, leaves the bypass alone.")}
             >
               <Select
-                ariaLabel="launch mode"
+                ariaLabel={tr("Кнопка «Запустить Discord»", "«Launch Discord» button")}
                 className="w-44"
                 value={s.launchMode}
                 onChange={(v) => set("launchMode", v as Settings["launchMode"])}
@@ -321,7 +321,7 @@ export default function SettingsPage() {
           <Section title={tr("Окно и трей", "Window & tray")}>
             <SettingRow title={tr("Крестик окна", "Window close button")}>
               <Select
-                ariaLabel="close"
+                ariaLabel={tr("Крестик окна", "Window close button")}
                 className="w-48"
                 value={s.closeBehavior}
                 onChange={(v) => set("closeBehavior", v as Settings["closeBehavior"])}
@@ -335,14 +335,14 @@ export default function SettingsPage() {
               title={tr("Выключать обход при выходе", "Turn off the bypass on exit")}
               description={s.stopBypassOnExit ? tr("При выходе из приложения обход выключится.", "The bypass stops when you quit.") : tr("Обход продолжит работать после выхода.", "The bypass keeps running after you quit.")}
             >
-              <Switch label="stop on exit" checked={s.stopBypassOnExit} onChange={(v) => set("stopBypassOnExit", v)} />
+              <Switch label={tr("Выключать обход при выходе", "Turn off the bypass on exit")} checked={s.stopBypassOnExit} onChange={(v) => set("stopBypassOnExit", v)} />
             </SettingRow>
           </Section>
 
           <Section title={tr("Внешний вид", "Appearance")}>
             <SettingRow title={tr("Тема", "Theme")}>
               <Segmented<Settings["theme"]>
-                ariaLabel="theme"
+                ariaLabel={tr("Тема", "Theme")}
                 value={s.theme}
                 onChange={(v) => set("theme", v)}
                 options={[
@@ -354,7 +354,7 @@ export default function SettingsPage() {
             </SettingRow>
             <SettingRow title={tr("Язык", "Language")}>
               <Select
-                ariaLabel="language"
+                ariaLabel={tr("Язык", "Language")}
                 className="w-40"
                 value={s.language}
                 onChange={(v) => set("language", v as Settings["language"])}
@@ -365,7 +365,7 @@ export default function SettingsPage() {
               />
             </SettingRow>
             <SettingRow title={tr("Вести журнал", "Keep a log")} description={tr("Обезличенный, до 2 МБ. Помогает разобраться с проблемами.", "Anonymised, up to 2 MB. Helps troubleshooting.")}>
-              <Switch label="logs" checked={s.keepLogs} onChange={(v) => set("keepLogs", v)} />
+              <Switch label={tr("Вести журнал", "Keep a log")} checked={s.keepLogs} onChange={(v) => set("keepLogs", v)} />
             </SettingRow>
           </Section>
         </>
@@ -379,7 +379,7 @@ export default function SettingsPage() {
           <Section title="Zapret">
             <SettingRow title={tr("Игровой фильтр", "Game filter")} description={tr("Обрабатывать и порты игр, как GameFilter во Flowseal. Может затронуть трафик других программ.", "Also handle game ports, like Flowseal GameFilter. May affect other programs' traffic.")}>
               <Select
-                ariaLabel="game filter"
+                ariaLabel={tr("Игровой фильтр", "Game filter")}
                 className="w-40"
                 value={gf.mode}
                 onChange={(v) => set("gameFilter", { ...gf, mode: v as Settings["gameFilter"]["mode"] })}
@@ -421,7 +421,7 @@ export default function SettingsPage() {
               }
             >
               <Select
-                ariaLabel="ipset"
+                ariaLabel={tr("Какие IP идут через обход", "Which IPs go through the bypass")}
                 className="w-52"
                 value={s.ipsetMode}
                 onChange={(v) => set("ipsetMode", v as Settings["ipsetMode"])}
@@ -455,8 +455,17 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </SettingRow>
+            <SettingRow
+              title={tr("Учитывать YouTube при автоподборе", "Require YouTube in auto-selection")}
+              description={tr(
+                "Автоподбор оставит стратегию, только если кроме Discord отвечает и YouTube. Проверяется, что соединения устанавливаются; скорость видео не измеряется.",
+                "Auto-selection keeps a strategy only if YouTube answers as well as Discord. It checks that connections are established; video speed is not measured.",
+              )}
+            >
+              <Switch label={tr("Учитывать YouTube при автоподборе", "Require YouTube in auto-selection")} checked={!!s.autoCheckYoutube} onChange={(v) => set("autoCheckYoutube", v)} />
+            </SettingRow>
             <SettingRow title={tr("Попыток при автоподборе", "Auto-selection attempts")} description={tr("От 1 до 50.", "From 1 to 50.")}>
-              <NumberField ariaLabel="auto attempts" className="w-28" min={1} max={50} value={s.autoMaxAttempts} onCommit={(v) => set("autoMaxAttempts", Math.max(1, Math.min(50, Number(v) || 8)))} />
+              <NumberField ariaLabel={tr("Попыток при автоподборе", "Auto-selection attempts")} className="w-28" min={1} max={50} value={s.autoMaxAttempts} onCommit={(v) => set("autoMaxAttempts", Math.max(1, Math.min(50, Number(v) || 8)))} />
             </SettingRow>
           </Section>
         </>
@@ -471,7 +480,21 @@ export default function SettingsPage() {
               title={tr("Автоматически проверять обновления при запуске", "Check for updates automatically at startup")}
               description={tr("Проверять новые версии Bridge и Flowseal при запуске приложения. Загрузка и установка обновлений выполняются только с вашего согласия.", "Check for new Bridge and Flowseal versions when the app starts. Updates are downloaded and installed only with your consent.")}
             >
-              <Switch label="check-updates-on-start" checked={s.checkUpdatesOnStart} onChange={(v) => set("checkUpdatesOnStart", v)} />
+              <Switch label={tr("Автоматически проверять обновления при запуске", "Check for updates automatically at startup")} checked={s.checkUpdatesOnStart} onChange={(v) => set("checkUpdatesOnStart", v)} />
+            </SettingRow>
+            <SettingRow
+              title={tr("Устанавливать проверенные версии Flowseal автоматически", "Install verified Flowseal versions automatically")}
+              description={tr(
+                "После проверки при запуске Bridge сам установит новый Flowseal, если наш проект уже проверил эту версию. Если с ней обход не запустится, вернётся прежняя. Если она ломает ваши собственные стратегии, Bridge только сообщит об этом. Bridge сам так не обновляется.",
+                "After the startup check Bridge installs a new Flowseal by itself once our project has verified that version. If the bypass does not start with it, the previous version returns. If it breaks your own strategies, Bridge only tells you. Bridge itself is not updated this way.",
+              )}
+            >
+              <Switch
+                label={tr("Устанавливать проверенные версии Flowseal автоматически", "Install verified Flowseal versions automatically")}
+                checked={!!s.autoInstallFlowseal}
+                disabled={!s.checkUpdatesOnStart}
+                onChange={(v) => set("autoInstallFlowseal", v)}
+              />
             </SettingRow>
           </Section>
 
@@ -527,18 +550,21 @@ export default function SettingsPage() {
                     {fsInfo && <span className="text-ink-faint">{tr(`проверено в ${checkedAt(fsInfo, lang)}`, `checked at ${checkedAt(fsInfo, lang)}`)}</span>}
                   </span>,
                 ],
-                [
-                  tr("Подписанный манифест", "Signed manifest"),
-                  !fsInfo || !fsInfo.newer ? (
-                    <span key="m" className="text-ink-muted">{tr("не требуется — новой версии нет", "not needed — no newer version")}</span>
-                  ) : fsInfo.installable ? (
-                    <span key="m" className="text-ok">{tr("проверен: подпись закреплённым ключом, версия и совместимость с приложением", "verified: pinned-key signature, version and app compatibility")}</span>
-                  ) : fsInfo.status === "error" ? (
-                    <span key="m" className="text-bad">{tr("не удалось проверить", "could not be checked")}</span>
-                  ) : (
-                    <span key="m" className="text-warn">{fsInfo.unavailableReason ?? tr("не опубликован", "not published")}</span>
-                  ),
-                ],
+                // Shown only when there is something to say: a newer Flowseal that is waiting for, passed or failed the project's check.
+                ...(fsInfo?.newer
+                  ? ([
+                      [
+                        tr("Проверка для Bridge", "Checked for Bridge"),
+                        fsInfo.installable ? (
+                          <span key="m" className="text-ok">{tr("пройдена — версию можно установить", "passed — this version can be installed")}</span>
+                        ) : fsInfo.status === "error" ? (
+                          <span key="m" className="text-bad">{tr("не удалось проверить", "could not be checked")}</span>
+                        ) : (
+                          <span key="m" className="text-warn">{fsInfo.unavailableReason ?? tr("ещё не пройдена — установить пока нельзя", "not passed yet — cannot be installed for now")}</span>
+                        ),
+                      ],
+                    ] as [string, ReactNode][])
+                  : []),
                 ...(fsInfo?.error ? ([[tr("Ошибка", "Error"), <span key="e" className="text-bad">{fsInfo.error}</span>]] as [string, ReactNode][]) : []),
               ]}
             />
@@ -692,10 +718,10 @@ function TelegramSettings({ settings, save, saving }: { settings: Settings; save
           title={tr("Запускать прокси вместе с Bridge", "Start the proxy with Bridge")}
           description={tr("Не зависит от автовключения обхода. Настройка «Останавливать обход при выходе» на прокси не влияет: при полном выходе из программы прокси останавливается всегда, при сворачивании в трей — продолжает работать.", "Independent of the bypass autostart. “Stop the bypass on exit” does not affect the proxy: a full exit always stops it; closing to the tray keeps it running.")}
         >
-          <Switch label="telegram-autostart" checked={t.autostart} disabled={saving} onChange={(v) => upd({ autostart: v })} />
+          <Switch label={tr("Запускать прокси вместе с Bridge", "Start the proxy with Bridge")} checked={t.autostart} disabled={saving} onChange={(v) => upd({ autostart: v })} />
         </SettingRow>
         <SettingRow title={tr("Локальный порт", "Local port")} description={tr("Прокси слушает только 127.0.0.1. Если порт занят другой программой, она не останавливается — выберите другой порт.", "The proxy listens on 127.0.0.1 only. If the port is used by another program, it is not stopped — choose another port.")}>
-          <NumberField ariaLabel="telegram port" className="w-28" min={1024} max={65535} value={t.port} invalid={!validPort(t.port)} onCommit={(v) => (validPort(Number(v)) ? upd({ port: Number(v) }) : toast("error", tr("Порт должен быть от 1024 до 65535", "The port must be 1024–65535")))} />
+          <NumberField ariaLabel={tr("Локальный порт", "Local port")} className="w-28" min={1024} max={65535} value={t.port} invalid={!validPort(t.port)} onCommit={(v) => (validPort(Number(v)) ? upd({ port: Number(v) }) : toast("error", tr("Порт должен быть от 1024 до 65535", "The port must be 1024–65535")))} />
         </SettingRow>
       </Section>
       <Section title={tr("Маршрут", "Route")}>
@@ -703,11 +729,11 @@ function TelegramSettings({ settings, save, saving }: { settings: Settings; save
           title={tr("Резервный маршрут через Cloudflare", "Cloudflare fallback route")}
           description={tr("Если прямое WebSocket-соединение с Telegram недоступно, трафик пойдёт через сторонние узлы Cloudflare из списка проекта tg-ws-proxy (он обновляется с GitHub). Узлы видят метаданные — адреса и объём, — но не содержимое: MTProto зашифрован Telegram. Выключено по умолчанию; без него при блокировке прямого маршрута Telegram может не подключиться.", "If a direct WebSocket to Telegram is unavailable, traffic goes through third-party Cloudflare relays from the tg-ws-proxy project list (updated from GitHub). Relays see metadata — addresses and volume — but not content: MTProto is encrypted by Telegram. Off by default; without it Telegram may not connect when the direct route is blocked.")}
         >
-          <Switch label="telegram-fallback" checked={t.fallbackCfproxy} disabled={saving} onChange={(v) => upd({ fallbackCfproxy: v })} />
+          <Switch label={tr("Резервный маршрут через Cloudflare", "Cloudflare fallback route")} checked={t.fallbackCfproxy} disabled={saving} onChange={(v) => upd({ fallbackCfproxy: v })} />
         </SettingRow>
         {t.fallbackCfproxy && (
           <SettingRow title={tr("Медиа через HTTP/2", "Media over HTTP/2")} description={tr("Загрузка фото и видео через резервные узлы по HTTP/2 (как в tg-ws-proxy по умолчанию).", "Photos and videos through the relays over HTTP/2 (the tg-ws-proxy default).")}>
-            <Switch label="telegram-h2" checked={t.h2Media} disabled={saving} onChange={(v) => upd({ h2Media: v })} />
+            <Switch label={tr("Медиа через HTTP/2", "Media over HTTP/2")} checked={t.h2Media} disabled={saving} onChange={(v) => upd({ h2Media: v })} />
           </SettingRow>
         )}
         <div className="py-3">

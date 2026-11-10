@@ -1,6 +1,6 @@
 [package]
 name = "bridge-core"
-description = "Platform-independent core of Discord Bridge: strategy schema, safe BAT import, validation, rendering, diff, signed manifests"
+description = "Platform-independent core of Bridge: strategy schema, safe BAT import, validation, rendering, diff, signed manifests"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
