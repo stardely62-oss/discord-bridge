@@ -23,7 +23,7 @@ pub const MANIFEST_FORMAT: u32 = 1;
 /// Ed25519 public keys (base64) trusted to sign Flowseal bundle manifests.
 /// The private seed lives only in the `flowseal-sign` environment secret and
 /// the owner's offline backup (rotated for 0.1.0-alpha.10; see
-/// docs/release-security.md §8).
+/// docs/maintainers/release-security.md §8).
 pub const TRUSTED_KEYS: &[&str] = &["hmycBFe3lANoV2kdSLLK73UmEF5RlIyyg8IJ5kM19b4="];
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

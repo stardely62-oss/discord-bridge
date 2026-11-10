@@ -324,6 +324,13 @@ export default function DiagnosticsPage() {
             >
               {tr("Сообщить о проблеме", "Report a problem")}
             </Button>
+            <Button
+              size="sm"
+              title={tr("Откроется форма на GitHub, уже заполненная версией, провайдером и стратегией. Из таких отчётов собираются подсказки автоподбора для других пользователей вашего провайдера. Bridge ничего не отправляет сам.", "Opens a GitHub form already filled in with the version, provider and strategy. Such reports become auto-selection hints for other users of your provider. Bridge sends nothing itself.")}
+              onClick={() => api.openStrategyReport().catch((e) => toast("error", errorText(e)))}
+            >
+              {tr("Сообщить, что работает", "Report what works")}
+            </Button>
           </div>
         </div>
         <pre className="selectable max-h-72 overflow-auto rounded-md border border-line bg-sunken p-3 font-mono text-[11px] leading-5 text-ink-muted">

@@ -5,7 +5,8 @@ body:
   - type: markdown
     attributes:
       value: |
-        Спасибо! Такие отчёты помогают понять, что работает у разных провайдеров.
+        Спасибо! Отчёты подсчитываются автоматически: когда о стратегии у одного провайдера
+        сообщают несколько человек, автоподбор Bridge начинает с неё у всех, кто выбрал этого провайдера.
         Не указывайте свой IP-адрес, логин и другие личные данные.
   - type: input
     id: version
@@ -14,13 +15,59 @@ body:
   - type: dropdown
     id: os
     attributes: { label: Windows, options: [Windows 11 x64, Windows 10 x64, Другое] }
-  - type: input
-    id: isp
-    attributes: { label: Провайдер и регион, placeholder: "например: Ростелеком, Москва; мобильный МТС" }
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Провайдер
+      description: Если Bridge открыл эту форму сам, поле уже заполнено по вашим настройкам — проверьте его.
+      options:
+        - "Ростелеком"
+        - "МТС (домашний)"
+        - "МТС (мобильный)"
+        - "МГТС"
+        - "Билайн (домашний)"
+        - "Билайн (мобильный)"
+        - "МегаФон"
+        - "T2 (Tele2)"
+        - "Yota"
+        - "Дом.ру"
+        - "ТТК"
+        - "Уфанет"
+        - "Таттелеком (Летай)"
+        - "Другой (напишу ниже)"
     validations: { required: true }
   - type: input
+    id: region
+    attributes: { label: Регион и уточнения, placeholder: "например: Москва; или название провайдера, если его нет в списке" }
+  - type: dropdown
     id: strategy
-    attributes: { label: Стратегия, placeholder: general (ALT2) }
+    attributes:
+      label: Стратегия
+      description: Встроенная стратегия Flowseal, с которой вы проверяли.
+      options:
+        - "general"
+        - "general (ALT2)"
+        - "general (ALT3)"
+        - "general (ALT4)"
+        - "general (ALT5)"
+        - "general (ALT6)"
+        - "general (ALT7)"
+        - "general (ALT8)"
+        - "general (ALT9)"
+        - "general (ALT10)"
+        - "general (ALT11)"
+        - "general (ALT12)"
+        - "general (ALT13)"
+        - "general (ALT)"
+        - "general (EXP)"
+        - "general (FAKE TLS AUTO ALT2)"
+        - "general (FAKE TLS AUTO ALT3)"
+        - "general (FAKE TLS AUTO ALT)"
+        - "general (FAKE TLS AUTO)"
+        - "general (SIMPLE FAKE ALT2)"
+        - "general (SIMPLE FAKE ALT)"
+        - "general (SIMPLE FAKE)"
+        - "Своя или изменённая"
     validations: { required: true }
   - type: dropdown
     id: ipset

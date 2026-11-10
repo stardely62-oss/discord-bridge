@@ -195,6 +195,7 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   get_logs: () => [`2026-11-05T10:01:12Z INFO Bridge ${appVersion} started`, "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
   engine_log: () => ["winws v72.9", "windivert initialized. capture is started."],
   get_settings: () => settings,
+  open_strategy_report: () => undefined,
   // Preview only: the shipped table, plus example reports for one provider with ?hints=demo.
   provider_hints: () => ({ ...providerHints, providers: providerHints.providers.map((p) => (q0.get("hints") === "demo" && p.id === "rostelecom" ? { ...p, strategies: ["flowseal-general-alt3", "flowseal-general-alt"] } : p)) }),
   save_settings: (a) => Object.assign(settings, a.settings),

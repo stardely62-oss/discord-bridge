@@ -16,7 +16,7 @@ name: Flowseal watch
 #
 # The SHA-256 in the issue is the hash of what was downloaded, taken from the
 # same place as the archive: it is a convenience, not a review. The owner
-# reviews the release before signing (docs/release-security.md).
+# reviews the release before signing (docs/maintainers/release-security.md).
 on:
   workflow_dispatch:
   schedule:
@@ -134,7 +134,7 @@ jobs:
             echo
             echo "\`${SHA256}\`"
             echo
-            echo "Это не проверка подлинности: хеш взят из того же источника, что и архив. Перед подписью просмотрите изменения релиза (\`docs/release-security.md\`)."
+            echo "Это не проверка подлинности: хеш взят из того же источника, что и архив. Перед подписью просмотрите изменения релиза (\`docs/maintainers/release-security.md\`)."
             echo
             echo "${next}"
             echo

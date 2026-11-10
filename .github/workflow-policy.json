@@ -1,10 +1,11 @@
 {
-  "$comment": "Checked by scripts/ci/check-workflows.mjs. Jobs allowed a write permission (publishing a release or opening an issue; they may only download artifacts: no build, no project code, no secrets) and jobs allowed to read signing secrets (protected environment, main only, dispatch only, dependency-free signer only).",
+  "$comment": "Checked by scripts/ci/check-workflows.mjs. Jobs allowed a write permission (publishing a release, opening an issue or proposing the provider table; they may only download artifacts: no build, no project code, no secrets) and jobs allowed to read signing secrets (protected environment, main only, dispatch only, dependency-free signer only).",
   "writeJobs": {
     "release.yml": ["publish"],
     "flowseal-manifest.yml": ["publish"],
     "flowseal-watch.yml": ["report"],
-    "app-manifest.yml": ["publish"]
+    "app-manifest.yml": ["publish"],
+    "provider-hints.yml": ["propose"]
   },
   "signingJobs": {
     "flowseal-manifest.yml": {

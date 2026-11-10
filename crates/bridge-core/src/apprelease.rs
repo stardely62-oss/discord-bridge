@@ -25,7 +25,7 @@ pub const APP_RELEASE_KIND: &str = "bridge-app-release";
 pub const APP_RELEASE_FORMAT: u32 = 1;
 
 /// Public keys (32-byte Ed25519, base64) allowed to sign app releases.
-/// Empty until the owner generates the key (docs/release-security.md):
+/// Empty until the owner generates the key (docs/maintainers/release-security.md):
 /// with no key pinned, no manifest is requested and installing from inside
 /// the app is off.
 pub const APP_RELEASE_TRUSTED_KEYS: &[&str] = &[];

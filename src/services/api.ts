@@ -97,6 +97,8 @@ export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings) => invoke<Settings>("save_settings", { settings }),
   providerHints: () => invoke<ProviderHints>("provider_hints"),
+  /** Opens the "works at my provider" form in the browser, filled in by the backend; nothing is sent by the app. */
+  openStrategyReport: () => invoke<void>("open_strategy_report"),
 
   flowsealCheck: () => invoke<UpdateInfo>("flowseal_check_update"),
   flowsealInstall: (version: string) => invoke<FlowsealAction>("flowseal_install", { version }),

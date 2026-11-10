@@ -129,6 +129,35 @@ pub async fn open_external(app: AppHandle, target: String) -> R<()> {
         .map_err(|e| e.to_string())
 }
 
+/// Opens the "works at my provider" issue form filled in with the app
+/// version, the provider chosen in the settings and the running built-in
+/// strategy. The caller passes nothing; the app sends nothing — the user
+/// reviews the form in the browser and submits it there.
+#[tauri::command]
+pub async fn open_strategy_report(app: AppHandle, state: State<'_, AppState>) -> R<()> {
+    let settings = state.settings();
+    let provider = settings
+        .provider
+        .as_deref()
+        .and_then(|p| bridge_core::hints::builtin().provider(p));
+    let running = zapret::engine_status(&state)
+        .await
+        .ok()
+        .filter(|s| s.state == EngineState::Running)
+        .and_then(|s| s.strategy_id);
+    // Only an unchanged Flowseal strategy is named: a user's own strategy
+    // means nothing to other people.
+    let strategy = running.and_then(|id| {
+        let sm = state.strategies.lock().expect("lock");
+        sm.builtin(&id).map(|s| s.name.clone())
+    });
+    let url =
+        bridge_core::hints::report_url(env!("CARGO_PKG_VERSION"), provider, strategy.as_deref());
+    app.opener()
+        .open_url(url, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 pub(crate) fn external_url(target: &str) -> Option<String> {
     if let Some(v) = target.strip_prefix("app-release:") {
         let v = upd::app_tag_version(&format!("v{v}"))?;

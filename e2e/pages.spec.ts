@@ -101,7 +101,11 @@ test.describe("Settings", () => {
     expect((save.args.settings as { provider: string }).provider).toBe("rostelecom");
     await expect(app.main).toContainText("стратегий из отчётов пользователей: 2");
     await provider.selectOption({ label: "ТТК" });
-    await expect(app.main).toContainText("Отчётов для этого провайдера пока нет");
+    await expect(app.main).toContainText("Отчётов для этого провайдера пока мало");
+    // The report form is opened by the backend; the interface passes no data of its own.
+    await app.calls();
+    await app.main.getByRole("button", { name: "Сообщить, что работает" }).click();
+    expect((await app.sent("open_strategy_report")).args).toEqual({});
     await app.calls();
     await provider.selectOption({ label: "Не указан" });
     expect((await app.sent("save_settings")).args.settings).toHaveProperty("provider", null);

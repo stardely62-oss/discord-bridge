@@ -7,7 +7,7 @@ with its exact version, origin, license, where its license text is installed,
 and where its corresponding source code is.
 
 The facts below are checked in CI where possible (see
-[docs/third-party-compliance.md](docs/third-party-compliance.md), which also
+[docs/maintainers/third-party-compliance.md](docs/maintainers/third-party-compliance.md), which also
 lists the open questions). Installed paths are relative to the installation
 directory, by default `C:\Program Files\Bridge` (or `C:\Program Files\Discord
 Bridge` for installations upgraded from 0.1.0-alpha.10 or earlier).

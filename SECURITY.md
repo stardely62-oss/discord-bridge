@@ -51,4 +51,4 @@
 ## Сборка, подпись и публикация
 
 Изоляция ключей подписи, закреплённые Actions, права токенов, проверки CI и
-действия владельца описаны в [docs/release-security.md](docs/release-security.md).
+действия владельца описаны в [docs/maintainers/release-security.md](docs/maintainers/release-security.md).

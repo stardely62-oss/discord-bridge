@@ -107,7 +107,7 @@ export default function SettingsPage() {
     ? tr("Автоподбор начнёт со стратегий, о которых сообщали пользователи того же провайдера. Bridge не определяет провайдера сам и никуда его не отправляет.", "Auto-selection will start with the strategies reported by users of the same provider. Bridge does not detect the provider and sends it nowhere.")
     : hinted
       ? tr(`Автоподбор начнёт со стратегий из отчётов пользователей: ${hinted}. Каждая всё равно проверяется на вашем подключении.`, `Auto-selection will start with the strategies from user reports: ${hinted}. Each one is still checked on your connection.`)
-      : tr("Отчётов для этого провайдера пока нет — порядок автоподбора обычный. Свой отчёт можно отправить: «Диагностика» → «Сообщить о проблеме».", "No reports for this provider yet — auto-selection uses its usual order. You can send yours: Diagnostics → Report a problem.");
+      : tr("Отчётов для этого провайдера пока мало — порядок автоподбора обычный. Если у вас всё работает, расскажите об этом: так список и наполняется.", "Not enough reports for this provider yet — auto-selection uses its usual order. If it works for you, tell about it: that is how the list is filled.");
 
   const browseDiscord = async () => {
     const p = await open({ multiple: false, filters: [{ name: "Discord", extensions: ["exe"] }] });
@@ -467,6 +467,15 @@ export default function SettingsPage() {
               </div>
             </SettingRow>
             <SettingRow title={tr("Провайдер", "Internet provider")} description={providerNote}>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  title={tr("Откроется форма на GitHub, уже заполненная версией, провайдером и стратегией. Bridge ничего не отправляет сам.", "Opens a GitHub form already filled in with the version, provider and strategy. Bridge sends nothing itself.")}
+                  onClick={() => api.openStrategyReport().catch((e) => toast("error", errorText(e)))}
+                >
+                  {tr("Сообщить, что работает", "Report what works")}
+                </Button>
               <Select
                 ariaLabel="provider"
                 className="w-56"
@@ -478,6 +487,7 @@ export default function SettingsPage() {
                   ...(s.provider && !providers.some((x) => x.id === s.provider) ? [{ value: s.provider, label: s.provider }] : []),
                 ]}
               />
+              </div>
             </SettingRow>
             <SettingRow title={tr("Попыток при автоподборе", "Auto-selection attempts")} description={tr("От 1 до 50.", "From 1 to 50.")}>
               <NumberField ariaLabel="auto attempts" className="w-28" min={1} max={50} value={s.autoMaxAttempts} onCommit={(v) => set("autoMaxAttempts", Math.max(1, Math.min(50, Number(v) || 8)))} />

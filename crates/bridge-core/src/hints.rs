@@ -6,10 +6,13 @@
 //!   as working: Auto still verifies every attempt itself.
 //! * The provider is chosen by the user in the settings. Bridge does not
 //!   detect it and sends nothing anywhere to learn it.
-//! * The table is data shipped with the app (`resources/hints/providers.json`)
-//!   and filled from the reports of the "works / does not work at my
-//!   provider" issue form. A provider without reports has an empty list, and
-//!   Auto keeps its usual order.
+//! * Nobody decides for the users what works for them. The table
+//!   (`resources/hints/providers.json`, shipped with the app) is **generated**
+//!   from the users' own reports: the app opens the "works at my provider"
+//!   issue form already filled in ([`report_url`]), the user submits it, and
+//!   `scripts/hints/aggregate.mjs` counts the reports — a strategy is listed
+//!   for a provider once enough different people reported it. A provider
+//!   without enough reports has an empty list, and Auto keeps its usual order.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -133,6 +136,39 @@ pub fn builtin() -> &'static ProviderHints {
     })
 }
 
+/// The issue form of `.github/ISSUE_TEMPLATE/strategy.yml`, filled in with
+/// what the app knows: its version, the provider the user chose and the
+/// built-in strategy that is running. Nothing is sent by the app: the page
+/// opens in the browser and the user reviews and submits it.
+pub fn report_url(
+    app_version: &str,
+    provider: Option<&Provider>,
+    strategy: Option<&str>,
+) -> String {
+    fn enc(s: &str) -> String {
+        s.bytes()
+            .map(|b| match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                    (b as char).to_string()
+                }
+                _ => format!("%{b:02X}"),
+            })
+            .collect()
+    }
+    let mut url = format!(
+        "https://github.com/{}/issues/new?template=strategy.yml&version={}",
+        crate::updates::APP_REPO,
+        enc(app_version)
+    );
+    if let Some(p) = provider {
+        url.push_str(&format!("&provider={}", enc(&p.name.ru)));
+    }
+    if let Some(s) = strategy {
+        url.push_str(&format!("&strategy={}", enc(s)));
+    }
+    url
+}
+
 /// Hinted candidates first, in the order of the hints; all the others after
 /// them in their original order. The result is a permutation of
 /// `candidates`: hints that are not candidates are ignored.
@@ -225,6 +261,23 @@ mod tests {
         ] {
             assert!(ProviderHints::parse(bad.as_bytes()).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn the_report_form_is_filled_in_and_nothing_else_is_reachable() {
+        let p = builtin().provider("mts-home").unwrap();
+        assert_eq!(
+            report_url("0.2.0", Some(p), Some("general (ALT2)")),
+            "https://github.com/stardely62-oss/discord-bridge/issues/new?template=strategy.yml&version=0.2.0&provider=%D0%9C%D0%A2%D0%A1%20%28%D0%B4%D0%BE%D0%BC%D0%B0%D1%88%D0%BD%D0%B8%D0%B9%29&strategy=general%20%28ALT2%29"
+        );
+        assert_eq!(
+            report_url("0.2.0", None, None),
+            "https://github.com/stardely62-oss/discord-bridge/issues/new?template=strategy.yml&version=0.2.0"
+        );
+        // Values cannot add parameters or leave the form.
+        let u = report_url("1&body=x#y", None, Some("a&title=b/../c"));
+        assert_eq!(u.matches('&').count(), 2);
+        assert!(!u.contains('#'));
     }
 
     #[test]

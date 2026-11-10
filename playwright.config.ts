@@ -1,6 +1,6 @@
 // UI tests against the preview build: the real React app with the mocked
 // backend from scripts/preview (no Tauri, no Windows, no network).
-// Needs the generated preview data — see docs/building.md, "Тесты интерфейса".
+// Needs the generated preview data — see docs/maintainers/building.md, "Тесты интерфейса".
 import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({

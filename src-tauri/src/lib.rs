@@ -236,6 +236,7 @@ pub fn run() {
             commands::launch::discord_status,
             commands::launch::set_discord_path,
             commands::launch::open_external,
+            commands::launch::open_strategy_report,
             commands::library::list_strategies,
             commands::library::get_strategy,
             commands::library::preview_strategy,

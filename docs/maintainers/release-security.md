@@ -173,6 +173,9 @@ workflow alpha.9 эта проверка отклонила бы, и разби�
 - **Workflow.** На уровне workflow `permissions: {}` или только чтение; права
   выдаются каждому job отдельно. Запись в репозиторий только у publish-job, ключи
   только у sign-job. Job `report` в `flowseal-watch.yml` может писать только задачи.
+  Job `propose` в `provider-hints.yml` меняет один файл в ветке `hints/auto` и
+  открывает pull request; для этого в Settings → Actions → General должно быть
+  включено «Allow GitHub Actions to create and approve pull requests».
 - **checkout** не сохраняет токен (`persist-credentials: false`).
 - **PR.** Не получают секретов: нет `pull_request_target`, signing-workflow
   запускаются только вручную.

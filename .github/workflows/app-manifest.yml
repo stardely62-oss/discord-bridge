@@ -18,7 +18,7 @@ name: App release manifest
 #             existing release.
 #
 # The key signs app releases only. It is not the Flowseal manifest key and
-# not the catalog key (docs/release-security.md).
+# not the catalog key (docs/maintainers/release-security.md).
 on:
   workflow_dispatch:
     inputs:
@@ -58,7 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          env=$(gh api "repos/${GITHUB_REPOSITORY}/environments/app-release-sign") || { echo "::error::environment app-release-sign does not exist — see docs/release-security.md"; exit 1; }
+          env=$(gh api "repos/${GITHUB_REPOSITORY}/environments/app-release-sign") || { echo "::error::environment app-release-sign does not exist — see docs/maintainers/release-security.md"; exit 1; }
           echo "$env" | jq -e '[.protection_rules[]?|select(.type=="required_reviewers")]|length>0' >/dev/null || { echo "::error::app-release-sign has no required reviewers"; exit 1; }
           echo "$env" | jq -e '.deployment_branch_policy != null' >/dev/null || { echo "::error::app-release-sign is not limited to selected branches"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

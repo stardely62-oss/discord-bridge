@@ -77,6 +77,8 @@ jobs:
       - run: pnpm test
       - name: License checks of the build scripts
         run: node --test scripts/third-party-licenses.test.mjs
+      - name: Provider hints — the report form, the table and the counting rules agree
+        run: node --test scripts/hints/aggregate.test.mjs
       - run: pnpm build
 
   ui:
