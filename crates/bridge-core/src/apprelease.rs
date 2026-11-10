@@ -24,11 +24,11 @@ use serde::{Deserialize, Serialize};
 pub const APP_RELEASE_KIND: &str = "bridge-app-release";
 pub const APP_RELEASE_FORMAT: u32 = 1;
 
-/// Public keys (32-byte Ed25519, base64) allowed to sign app releases.
-/// Empty until the owner generates the key (docs/maintainers/release-security.md):
-/// with no key pinned, no manifest is requested and installing from inside
-/// the app is off.
-pub const APP_RELEASE_TRUSTED_KEYS: &[&str] = &[];
+/// Public keys (32-byte Ed25519, base64) allowed to sign app releases
+/// (key id `c7db86e3239e5b37`, also in `keys/app-release-public-key.b64`).
+/// With an empty list no manifest would be requested and installing from
+/// inside the app would be off.
+pub const APP_RELEASE_TRUSTED_KEYS: &[&str] = &["x9uG4yOeWzdUSImEz0g+gNFJ+NgnQ+LiGnoEXv487BE="];
 
 pub const MIN_INSTALLER_BYTES: u64 = 1024 * 1024;
 pub const MAX_INSTALLER_BYTES: u64 = 512 * 1024 * 1024;
