@@ -1,0 +1,147 @@
+name: Flowseal watch
+
+# Notices a new official Flowseal release and prepares everything up to the
+# signature, so that a working release reaches users sooner. It never signs
+# and never publishes a manifest: that stays the manual, owner-approved
+# `Flowseal manifest` workflow. Two isolated jobs:
+#
+#   check  — read-only token. Asks GitHub for the latest official release;
+#            when Bridge has neither built it in nor published a manifest for
+#            it, downloads the archive, records its SHA-256 and runs the same
+#            compatibility check the manifest workflow runs (every strategy
+#            must import).
+#   report — may write issues only. No checkout, no build, no project code.
+#            Opens one issue per Flowseal version with the result and the
+#            command that starts the manifest workflow.
+#
+# The SHA-256 in the issue is the hash of what was downloaded, taken from the
+# same place as the archive: it is a convenience, not a review. The owner
+# reviews the release before signing (docs/release-security.md).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 */6 * * *"
+
+permissions: {}
+
+concurrency:
+  group: flowseal-watch
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Latest official release (read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    outputs:
+      needed: ${{ steps.latest.outputs.needed }}
+      version: ${{ steps.latest.outputs.version }}
+      sha256: ${{ steps.archive.outputs.sha256 }}
+      compatible: ${{ steps.compat.outputs.compatible }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Latest release, and whether Bridge already has it
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(gh api repos/Flowseal/zapret-discord-youtube/releases/latest --jq .tag_name)
+          [[ "$version" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]] || { echo "::error::unexpected release tag"; exit 1; }
+          builtin=$(jq -r .version resources/flowseal.lock.json)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if [ "$version" = "$builtin" ]; then
+            echo "Flowseal $version is the built-in version: nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          elif gh api "repos/${GITHUB_REPOSITORY}/releases/tags/flowseal-${version}" --silent 2>/dev/null; then
+            echo "A signed manifest for Flowseal $version is already published: nothing to do" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Flowseal $version has no signed manifest yet (built-in: $builtin)" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+        if: steps.latest.outputs.needed == 'true'
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        if: steps.latest.outputs.needed == 'true'
+      - name: Download the official archive
+        id: archive
+        if: steps.latest.outputs.needed == 'true'
+        env:
+          VERSION: ${{ steps.latest.outputs.version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/Flowseal/zapret-discord-youtube/releases/download/${VERSION}/zapret-discord-youtube-${VERSION}.zip"
+          curl -fsSL --retry 3 "$url" -o flowseal.zip
+          sha=$(sha256sum flowseal.zip | cut -d' ' -f1)
+          jq -n --arg v "$VERSION" --arg u "$url" --arg s "$sha" \
+            '{version:$v, winwsVersion:"see bundle", url:$u, sha256:$s, archiveRoot:("zapret-discord-youtube-"+$v+"/")}' > lock.json
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "Archive SHA-256 (as downloaded, not reviewed): \`$sha\`" >> "$GITHUB_STEP_SUMMARY"
+      - name: Compatibility — every strategy of the release must import
+        id: compat
+        if: steps.latest.outputs.needed == 'true'
+        run: |
+          if cargo run -q -p bridge-tools -- bundle lock.json flowseal.zip out; then
+            echo "compatible=true" >> "$GITHUB_OUTPUT"
+            echo "Compatible: the bundle builds, every strategy imports" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "compatible=false" >> "$GITHUB_OUTPUT"
+            echo "NOT compatible: the bundle does not build — see the log of this step" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  report:
+    name: Open an issue (issues only, no code)
+    needs: check
+    if: needs.check.outputs.needed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: One issue per Flowseal version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.check.outputs.version }}
+          SHA256: ${{ needs.check.outputs.sha256 }}
+          COMPATIBLE: ${{ needs.check.outputs.compatible }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){1,3}$ ]] || { echo "bad version"; exit 1; }
+          [[ "$SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "bad sha256"; exit 1; }
+          title="Flowseal ${VERSION}: нужен подписанный манифест"
+          # Open or closed: a closed issue means the owner has decided about this version.
+          existing=$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues?state=all&creator=github-actions%5Bbot%5D&per_page=100" \
+            --jq ".[] | select(.pull_request == null and .title == \"${title}\") | .number")
+          if [ -n "$existing" ]; then echo "an issue for ${VERSION} already exists: #${existing%%$'\n'*}"; exit 0; fi
+          if [ "$COMPATIBLE" = "true" ]; then
+            verdict="**Совместим:** пакет собирается, все стратегии релиза импортируются."
+            next="Если релиз проверен, запустите подпись (нужно подтверждение владельца в окружении \`flowseal-sign\`):"
+          else
+            verdict="**Несовместим:** пакет не собирается или часть стратегий не импортируется. Сначала нужна правка Bridge."
+            next="После исправления и нового релиза Bridge манифест публикуется так:"
+          fi
+          {
+            echo "Вышел официальный релиз [Flowseal ${VERSION}](https://github.com/Flowseal/zapret-discord-youtube/releases/tag/${VERSION}). Подписанного манифеста для него ещё нет, поэтому пользователи Bridge не могут его установить."
+            echo
+            echo "${verdict} Подробности — в [журнале проверки](${RUN_URL})."
+            echo
+            echo "SHA-256 архива \`zapret-discord-youtube-${VERSION}.zip\`, каким он был скачан:"
+            echo
+            echo "\`${SHA256}\`"
+            echo
+            echo "Это не проверка подлинности: хеш взят из того же источника, что и архив. Перед подписью просмотрите изменения релиза (\`docs/release-security.md\`)."
+            echo
+            echo "${next}"
+            echo
+            echo "\`\`\`"
+            echo "gh workflow run flowseal-manifest.yml -f version=${VERSION} -f sha256=${SHA256}"
+            echo "\`\`\`"
+            echo
+            echo "Задача создана автоматически (\`flowseal-watch.yml\`). Если эту версию публиковать не нужно, закройте задачу — повторно она не откроется."
+          } > body.md
+          gh api "repos/${GITHUB_REPOSITORY}/issues" -f title="$title" -F body=@body.md --jq .html_url
