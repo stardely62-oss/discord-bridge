@@ -103,6 +103,18 @@ test.describe("Settings", () => {
     await expect(app.main).toContainText("ещё не проверен для Bridge");
   });
 
+  test("automatic Flowseal updates are off by default and are the user's choice", async ({ app }) => {
+    await app.open();
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    const sw = app.main.getByRole("switch", { name: "Устанавливать проверенные версии Flowseal автоматически" });
+    await expect(sw).not.toBeChecked();
+    await app.calls();
+    await sw.click();
+    const save = await app.sent("save_settings");
+    expect((save.args.settings as { autoInstallFlowseal: boolean }).autoInstallFlowseal).toBe(true);
+  });
+
   test("all settings tabs open", async ({ app }) => {
     await app.open();
     await app.go("Настройки");

@@ -61,6 +61,10 @@ pub struct Settings {
     pub installed_packs: Vec<InstalledPack>,
     pub keep_logs: bool,
     pub check_updates_on_start: bool,
+    /// Install a newer Flowseal at startup without asking, when the project
+    /// has verified it (signed manifest) and no strategy of the user would
+    /// break. Off by default. Missing in older files: off.
+    pub auto_install_flowseal: bool,
     /// Strategy ids the Auto mode may try, in order. Empty = all built-ins.
     pub auto_candidates: Vec<String>,
     pub auto_max_attempts: u32,
@@ -110,6 +114,7 @@ impl Default for Settings {
             installed_packs: Vec::new(),
             keep_logs: true,
             check_updates_on_start: true,
+            auto_install_flowseal: false,
             auto_candidates: vec![],
             auto_max_attempts: 8,
             voice_confirmations: BTreeMap::new(),

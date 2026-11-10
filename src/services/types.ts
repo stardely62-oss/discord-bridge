@@ -288,6 +288,8 @@ export interface Settings {
   installedPacks: InstalledPack[];
   keepLogs: boolean;
   checkUpdatesOnStart: boolean;
+  /** Install a newer Flowseal at startup without asking, once the project has verified it. Off by default. */
+  autoInstallFlowseal?: boolean;
   /** Telegram WS Proxy (independent of the bypass; the secret is never here). */
   telegramProxy: TelegramProxySettings;
   autoCandidates: string[];

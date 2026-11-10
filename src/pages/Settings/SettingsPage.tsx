@@ -473,6 +473,20 @@ export default function SettingsPage() {
             >
               <Switch label={tr("Автоматически проверять обновления при запуске", "Check for updates automatically at startup")} checked={s.checkUpdatesOnStart} onChange={(v) => set("checkUpdatesOnStart", v)} />
             </SettingRow>
+            <SettingRow
+              title={tr("Устанавливать проверенные версии Flowseal автоматически", "Install verified Flowseal versions automatically")}
+              description={tr(
+                "После проверки при запуске Bridge сам установит новый Flowseal, если наш проект уже проверил эту версию. Если с ней обход не запустится, вернётся прежняя. Если она ломает ваши собственные стратегии, Bridge только сообщит об этом. Bridge сам так не обновляется.",
+                "After the startup check Bridge installs a new Flowseal by itself once our project has verified that version. If the bypass does not start with it, the previous version returns. If it breaks your own strategies, Bridge only tells you. Bridge itself is not updated this way.",
+              )}
+            >
+              <Switch
+                label={tr("Устанавливать проверенные версии Flowseal автоматически", "Install verified Flowseal versions automatically")}
+                checked={!!s.autoInstallFlowseal}
+                disabled={!s.checkUpdatesOnStart}
+                onChange={(v) => set("autoInstallFlowseal", v)}
+              />
+            </SettingRow>
           </Section>
 
           <Section title="Bridge">
