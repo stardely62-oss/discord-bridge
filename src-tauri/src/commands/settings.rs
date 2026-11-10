@@ -55,13 +55,6 @@ pub async fn save_settings(
     Ok(state.settings())
 }
 
-/// Providers the user can choose from, with the strategies reported for
-/// each. Data shipped with the app; nothing is requested from the network.
-#[tauri::command]
-pub fn provider_hints() -> &'static bridge_core::hints::ProviderHints {
-    bridge_core::hints::builtin()
-}
-
 pub(super) const MAX_LIST_FILE: u64 = 1024 * 1024;
 
 /// Reads a plain-text list (one entry per line) chosen by the user for the

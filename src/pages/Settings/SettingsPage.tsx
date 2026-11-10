@@ -4,7 +4,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { Badge, Button, Card, NumberField, PageHeader, PageSkeleton, Segmented, Select, SettingRow, Switch } from "../../components/ui";
 import { confirmDialog } from "../../components/ui/confirm";
 import { api, errorText } from "../../services/api";
-import type { CompatEntry, FlowsealAction, ProviderHints, Settings, TcpInfo, UpdateInfo } from "../../services/types";
+import type { CompatEntry, FlowsealAction, Settings, TcpInfo, UpdateInfo } from "../../services/types";
 import { useApp, useTr, type SettingsTab } from "../../stores/app";
 import { useAppUpdate } from "../../updates/install";
 import { appReleaseTarget, checkState, type CheckState } from "../../updates/notices";
@@ -67,12 +67,10 @@ export default function SettingsPage() {
   const [checkingFs, setCheckingFs] = useState(false);
   const [fsPhase, setFsPhase] = useState<FsPhase>({ kind: "idle" });
   const [tcp, setTcp] = useState<TcpInfo | null>(null);
-  const [hints, setHints] = useState<ProviderHints | null>(null);
   const appUpdate = useAppUpdate();
 
   useEffect(() => {
     api.getSettings().then(setS).catch((e) => toast("error", errorText(e)));
-    api.providerHints().then(setHints).catch(() => setHints(null));
   }, [toast]);
 
   // "Go to update" from a notice opens this tab.
@@ -99,15 +97,6 @@ export default function SettingsPage() {
     }
   };
   const set = <K extends keyof Settings>(k: K, v: Settings[K]) => persist({ ...s, [k]: v });
-
-  // Provider hints only order the Auto candidates; the provider is the user's own choice.
-  const providers = hints?.providers ?? [];
-  const hinted = providers.find((x) => x.id === s.provider)?.strategies.length ?? 0;
-  const providerNote = !s.provider
-    ? tr("Автоподбор начнёт со стратегий, о которых сообщали пользователи того же провайдера. Bridge не определяет провайдера сам и никуда его не отправляет.", "Auto-selection will start with the strategies reported by users of the same provider. Bridge does not detect the provider and sends it nowhere.")
-    : hinted
-      ? tr(`Автоподбор начнёт со стратегий из отчётов пользователей: ${hinted}. Каждая всё равно проверяется на вашем подключении.`, `Auto-selection will start with the strategies from user reports: ${hinted}. Each one is still checked on your connection.`)
-      : tr("Отчётов для этого провайдера пока мало — порядок автоподбора обычный. Если у вас всё работает, расскажите об этом: так список и наполняется.", "Not enough reports for this provider yet — auto-selection uses its usual order. If it works for you, tell about it: that is how the list is filled.");
 
   const browseDiscord = async () => {
     const p = await open({ multiple: false, filters: [{ name: "Discord", extensions: ["exe"] }] });
@@ -464,29 +453,6 @@ export default function SettingsPage() {
                 <Button size="sm" variant="ghost" onClick={restoreTs}>
                   {tr("Вернуть исходное", "Restore")}
                 </Button>
-              </div>
-            </SettingRow>
-            <SettingRow title={tr("Провайдер", "Internet provider")} description={providerNote}>
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  title={tr("Откроется форма на GitHub, уже заполненная версией, провайдером и стратегией. Bridge ничего не отправляет сам.", "Opens a GitHub form already filled in with the version, provider and strategy. Bridge sends nothing itself.")}
-                  onClick={() => api.openStrategyReport().catch((e) => toast("error", errorText(e)))}
-                >
-                  {tr("Сообщить, что работает", "Report what works")}
-                </Button>
-              <Select
-                ariaLabel="provider"
-                className="w-56"
-                value={s.provider ?? ""}
-                onChange={(v) => set("provider", v || null)}
-                options={[
-                  { value: "", label: tr("Не указан", "Not set") },
-                  ...providers.map((x) => ({ value: x.id, label: lang === "en" ? x.name.en : x.name.ru })),
-                  ...(s.provider && !providers.some((x) => x.id === s.provider) ? [{ value: s.provider, label: s.provider }] : []),
-                ]}
-              />
               </div>
             </SettingRow>
             <SettingRow title={tr("Попыток при автоподборе", "Auto-selection attempts")} description={tr("От 1 до 50.", "From 1 to 50.")}>
