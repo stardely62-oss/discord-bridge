@@ -88,6 +88,21 @@ test.describe("Settings", () => {
     expect((save.args.settings as { autoLaunchDiscord: boolean }).autoLaunchDiscord).toBe(true);
   });
 
+  test("the Flowseal check row appears only when a newer version exists", async ({ app }) => {
+    await app.open("s=running&readme=1");
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    await expect(app.main).toContainText("Последняя официальная");
+    await expect(app.main).not.toContainText("Проверка для Bridge");
+    await expect(app.main).not.toContainText("манифест");
+
+    await app.open("s=running");
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обновления", exact: true }).click();
+    await expect(app.main).toContainText("Проверка для Bridge");
+    await expect(app.main).toContainText("ещё не проверен для Bridge");
+  });
+
   test("all settings tabs open", async ({ app }) => {
     await app.open();
     await app.go("Настройки");

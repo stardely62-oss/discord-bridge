@@ -527,18 +527,21 @@ export default function SettingsPage() {
                     {fsInfo && <span className="text-ink-faint">{tr(`проверено в ${checkedAt(fsInfo, lang)}`, `checked at ${checkedAt(fsInfo, lang)}`)}</span>}
                   </span>,
                 ],
-                [
-                  tr("Подписанный манифест", "Signed manifest"),
-                  !fsInfo || !fsInfo.newer ? (
-                    <span key="m" className="text-ink-muted">{tr("не требуется — новой версии нет", "not needed — no newer version")}</span>
-                  ) : fsInfo.installable ? (
-                    <span key="m" className="text-ok">{tr("проверен: подпись закреплённым ключом, версия и совместимость с приложением", "verified: pinned-key signature, version and app compatibility")}</span>
-                  ) : fsInfo.status === "error" ? (
-                    <span key="m" className="text-bad">{tr("не удалось проверить", "could not be checked")}</span>
-                  ) : (
-                    <span key="m" className="text-warn">{fsInfo.unavailableReason ?? tr("не опубликован", "not published")}</span>
-                  ),
-                ],
+                // Shown only when there is something to say: a newer Flowseal that is waiting for, passed or failed the project's check.
+                ...(fsInfo?.newer
+                  ? ([
+                      [
+                        tr("Проверка для Bridge", "Checked for Bridge"),
+                        fsInfo.installable ? (
+                          <span key="m" className="text-ok">{tr("пройдена — версию можно установить", "passed — this version can be installed")}</span>
+                        ) : fsInfo.status === "error" ? (
+                          <span key="m" className="text-bad">{tr("не удалось проверить", "could not be checked")}</span>
+                        ) : (
+                          <span key="m" className="text-warn">{fsInfo.unavailableReason ?? tr("ещё не пройдена — установить пока нельзя", "not passed yet — cannot be installed for now")}</span>
+                        ),
+                      ],
+                    ] as [string, ReactNode][])
+                  : []),
                 ...(fsInfo?.error ? ([[tr("Ошибка", "Error"), <span key="e" className="text-bad">{fsInfo.error}</span>]] as [string, ReactNode][]) : []),
               ]}
             />
