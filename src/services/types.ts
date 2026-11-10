@@ -642,6 +642,8 @@ export interface TelegramView {
   settings: TelegramProxySettings;
   /** Running with older settings: a restart applies the saved ones. */
   pendingRestart: boolean;
+  /** The proxy exited unexpectedly and Bridge is about to start it again. */
+  autoRestartPending?: boolean;
   /** The port Telegram must use now (the running process's port). */
   connectionPort: number;
 }

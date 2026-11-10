@@ -125,6 +125,7 @@ const tgView = (next?: string) => {
     component: tgState === "notInstalled" ? { installed: false } : { installed: true, version: "1.11.4", upstreamCommit: "2085861957070eeea07990a522b29f42e5230210" },
     settings: settings.telegramProxy,
     pendingRestart: false,
+    autoRestartPending: q0.get("tg") === "error" && q0.get("tgr") === "1",
     connectionPort: settings.telegramProxy.port,
   };
 };

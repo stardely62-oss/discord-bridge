@@ -423,6 +423,7 @@ function TelegramCard() {
           {tr("Локальный прокси для Telegram Desktop. Работает отдельно от Zapret: каждый можно включать и выключать независимо.", "A local proxy for Telegram Desktop. Independent of Zapret: each can be turned on and off separately.")}
         </p>
         {st?.lastError && (st.state === "error" || st.state === "notInstalled") && <div className="selectable mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{st.lastError}</div>}
+        {telegram?.autoRestartPending && <div className="mt-2 text-xs text-ink-muted" role="status">{tr("Прокси завершился неожиданно. Bridge запустит его снова через несколько секунд.", "The proxy exited unexpectedly. Bridge will start it again in a few seconds.")}</div>}
         {v?.component.problem && <div className="mt-3 rounded-md border border-bad/30 bg-bad-soft px-3 py-2 text-xs text-bad">{v.component.problem}</div>}
         {v?.pendingRestart && (
           <div className="mt-3 flex items-center gap-2 rounded-md border border-warn/30 bg-warn-soft px-3 py-2 text-xs text-warn">

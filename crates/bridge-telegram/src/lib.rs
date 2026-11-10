@@ -12,7 +12,8 @@
 //!   a separate file, never logged, never serialised;
 //! * [`link`] — the `tg://proxy` link and its strict validation;
 //! * [`protocol`] — the JSON lines the engine prints on stdout;
-//! * [`manager`] — start / stop / restart, state from the real child process.
+//! * [`manager`] — start / stop / restart, state from the real child process;
+//! * [`supervise`] — when an unexpectedly exited proxy is started again.
 
 pub mod component;
 pub mod link;
@@ -20,6 +21,7 @@ pub mod manager;
 pub mod protocol;
 pub mod secret;
 pub mod settings;
+pub mod supervise;
 #[cfg(windows)]
 mod win;
 

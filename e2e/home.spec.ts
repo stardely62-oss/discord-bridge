@@ -60,6 +60,13 @@ test.describe("Telegram WS Proxy card", () => {
     await expect(app.main).toContainText("порт 1443 уже занят другой программой");
   });
 
+  test("a planned automatic restart is announced; a plain error is not", async ({ app }) => {
+    await app.open("s=running&tg=error&tgr=1");
+    await expect(app.main).toContainText("Bridge запустит его снова через несколько секунд");
+    await app.open("s=running&tg=error");
+    await expect(app.main).not.toContainText("запустит его снова");
+  });
+
   test("a missing component offers no start button", async ({ app }) => {
     await app.open("s=running&tg=notInstalled");
     await expect(app.main.getByRole("button", { name: "Запустить", exact: true })).toHaveCount(0);
