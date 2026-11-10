@@ -99,7 +99,9 @@ mod tests {
             Request::Diagnose,
             Request::ListBundles,
             Request::EngineLog,
-            Request::Hello { protocol: 2 },
+            Request::Hello {
+                protocol: bridge_core::ipc::PROTOCOL_VERSION,
+            },
             Request::ReadBundleList {
                 version: "1.10.4".into(),
                 name: "list-general.txt".into(),
