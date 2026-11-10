@@ -18,6 +18,9 @@ __pycache__/
 src-tauri/binaries/*.exe
 scripts/preview/catalog.json
 scripts/preview/specs.json
+# Playwright output (pnpm e2e)
+/test-results/
+/playwright-report/
 
 # --- Secrets and private material (never commit) -------------------------
 # Environment files; only explicit examples are allowed.

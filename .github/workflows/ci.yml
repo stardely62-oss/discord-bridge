@@ -79,6 +79,33 @@ jobs:
         run: node --test scripts/third-party-licenses.test.mjs
       - run: pnpm build
 
+  ui:
+    name: Interface (Playwright, mocked backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Preview data — real strategies of the pinned Flowseal release and the option table
+        run: |
+          node scripts/fetch-flowseal.mjs
+          version=$(jq -r .version resources/flowseal.lock.json)
+          cargo run -q -p bridge-tools -- catalog "resources/flowseal/$version" > scripts/preview/catalog.json
+          cargo run -q -p bridge-tools -- specs > scripts/preview/specs.json
+      - name: Chromium for Playwright
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Interface scenarios — navigation, activation, Telegram card, notices, settings
+        run: pnpm e2e
+
   security:
     name: Security — secrets, private keys, commit emails, workflow policy
     runs-on: ubuntu-latest

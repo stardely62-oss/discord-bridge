@@ -219,7 +219,11 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
     checkingFlowseal: false,
   }),
 };
+// Every command the UI sends, in order: the UI tests (e2e/) assert on it.
+const calls: { cmd: string; args: Record<string, unknown> }[] = [];
+(window as unknown as { __bridgeCalls: typeof calls }).__bridgeCalls = calls;
 export async function invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+  calls.push({ cmd, args });
   const h = handlers[cmd];
   if (!h) return undefined as T;
   return h(args) as T;
