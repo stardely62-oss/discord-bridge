@@ -72,3 +72,64 @@ pub fn process_path(pid: u32) -> Option<String> {
 pub fn process_path(_pid: u32) -> Option<String> {
     None
 }
+
+/// Reopens a downloaded file so that it cannot be changed, replaced or
+/// deleted while the returned handle lives (on Windows: read sharing only),
+/// and checks its SHA-256 **through that same handle**. What is launched
+/// afterwards is therefore exactly the bytes that were verified.
+pub fn lock_and_verify(path: &std::path::Path, sha256: &str) -> Result<std::fs::File, String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut o = std::fs::OpenOptions::new();
+    o.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        // FILE_SHARE_READ only: no writer and no delete/rename while we hold it.
+        o.share_mode(windows_sys::Win32::Storage::FileSystem::FILE_SHARE_READ);
+    }
+    let mut f = o
+        .open(path)
+        .map_err(|e| format!("не удалось открыть скачанный установщик: {e}"))?;
+    let mut hash = Sha256::new();
+    let mut buf = vec![0u8; 1024 * 1024];
+    loop {
+        let n = f
+            .read(&mut buf)
+            .map_err(|e| format!("не удалось прочитать скачанный установщик: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        hash.update(&buf[..n]);
+    }
+    let got: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    if got != sha256 {
+        return Err("скачанный установщик изменился после проверки — запуск отменён".into());
+    }
+    Ok(f)
+}
+
+#[cfg(test)]
+mod lock_tests {
+    use super::lock_and_verify;
+
+    #[test]
+    fn only_the_verified_bytes_pass() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("setup.exe");
+        std::fs::write(&p, b"installer").unwrap();
+        let good = bridge_core::manifest::sha256_hex(b"installer");
+        let held = lock_and_verify(&p, &good).expect("verified");
+        assert!(lock_and_verify(&p, &"0".repeat(64)).is_err());
+        assert!(lock_and_verify(&dir.path().join("missing.exe"), &good).is_err());
+        // While the handle lives, Windows refuses to change or delete the file.
+        #[cfg(windows)]
+        {
+            assert!(std::fs::write(&p, b"other").is_err());
+            assert!(std::fs::remove_file(&p).is_err());
+            assert!(std::fs::rename(&p, dir.path().join("x.exe")).is_err());
+        }
+        drop(held);
+        assert!(std::fs::write(&p, b"other").is_ok());
+    }
+}

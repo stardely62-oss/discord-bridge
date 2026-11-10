@@ -6,6 +6,7 @@ import { confirmDialog } from "../../components/ui/confirm";
 import { api, errorText } from "../../services/api";
 import type { CompatEntry, FlowsealAction, Settings, TcpInfo, UpdateInfo } from "../../services/types";
 import { useApp, useTr, type SettingsTab } from "../../stores/app";
+import { useAppUpdate } from "../../updates/install";
 import { appReleaseTarget, checkState, type CheckState } from "../../updates/notices";
 import { stateLabel, validPort } from "../../telegram/view";
 import type { TelegramDiagItem, TelegramProxySettings } from "../../services/types";
@@ -66,6 +67,7 @@ export default function SettingsPage() {
   const [checkingFs, setCheckingFs] = useState(false);
   const [fsPhase, setFsPhase] = useState<FsPhase>({ kind: "idle" });
   const [tcp, setTcp] = useState<TcpInfo | null>(null);
+  const appUpdate = useAppUpdate();
 
   useEffect(() => {
     api.getSettings().then(setS).catch((e) => toast("error", errorText(e)));
@@ -492,12 +494,23 @@ export default function SettingsPage() {
               <Button size="sm" icon={<RefreshCw className="h-3.5 w-3.5" />} loading={checkingApp} onClick={checkApp}>
                 {tr("Проверить", "Check")}
               </Button>
+              {appUpdate.canInstall && (
+                <Button size="sm" variant="primary" icon={<Download className="h-3.5 w-3.5" />} loading={appUpdate.installing} onClick={appUpdate.install}>
+                  {tr(`Скачать и установить ${appInfo?.latest}`, `Download and install ${appInfo?.latest}`)}
+                </Button>
+              )}
               {appReleaseTarget(appInfo) && (
-                <Button size="sm" variant="primary" icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => api.openExternal(appReleaseTarget(appInfo)!).catch((e) => toast("error", errorText(e)))}>
+                <Button size="sm" variant={appUpdate.canInstall ? "secondary" : "primary"} icon={<ExternalLink className="h-3.5 w-3.5" />} onClick={() => api.openExternal(appReleaseTarget(appInfo)!).catch((e) => toast("error", errorText(e)))}>
                   {tr(`Открыть релиз ${appInfo?.latest}`, `Open release ${appInfo?.latest}`)}
                 </Button>
               )}
-              <span className="text-xs text-ink-faint">{tr("Установка — вручную, установщиком со страницы релиза.", "Install manually with the installer from the release page.")}</span>
+              <span className="text-xs text-ink-faint">
+                {appUpdate.canInstall
+                  ? tr("Подпись релиза проверена. Установщик сверяется с подписанным манифестом перед запуском.", "The release signature is verified. The installer is checked against the signed manifest before it starts.")
+                  : appInfo?.status === "available" && appInfo.unavailableReason
+                    ? tr(`Установка — вручную, со страницы релиза: ${appInfo.unavailableReason}.`, `Install manually from the release page: ${appInfo.unavailableReason}.`)
+                    : tr("Установка — вручную, установщиком со страницы релиза.", "Install manually with the installer from the release page.")}
+              </span>
             </div>
             {appInfo?.status === "available" && appInfo.changelog && <pre className="selectable mb-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-surface-2 p-3 font-sans text-xs text-ink-muted">{appInfo.changelog}</pre>}
           </Section>

@@ -358,6 +358,7 @@ dependencies = [
  "base64 0.22.1",
  "bridge-core",
  "ed25519-dalek",
+ "semver",
  "serde",
  "serde_json",
  "zip",
@@ -371,8 +372,10 @@ dependencies = [
  "bridge-core",
  "ed25519-dalek",
  "reqwest 0.12.28",
+ "semver",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 

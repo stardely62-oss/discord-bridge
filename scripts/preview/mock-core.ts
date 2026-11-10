@@ -207,19 +207,25 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   service_details: (a) => (svc().details as { summary: { id: string } }[]).find((d) => d.summary.id === a.id),
   flowseal_list_page: listPage,
   flowseal_list_text: (a) => listFiles[a.name as string] ?? "",
+  // Preview only: ?upd=signed shows a release with a verified signed manifest; nothing is downloaded.
+  app_update_install: () => undefined,
   // Preview only: example results (no real releases are implied).
   updates_get: () => readme ? {
     app: { status: "upToDate", current: appVersion, latest: appVersion, newer: false, installable: false, checkedAt: Math.floor(Date.now() / 1000) },
     flowseal: { status: "upToDate", current: "1.10.4", latest: "1.10.4", newer: false, installable: false, checkedAt: Math.floor(Date.now() / 1000) },
     checkingApp: false, checkingFlowseal: false,
   } : ({
-    app: { status: "available", current: "0.1.0-alpha.10", latest: "0.1.0-alpha.11", newer: true, installable: false, url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11", changelog: "Пример заметок к релизу (превью).", checkedAt: Math.floor(Date.now() / 1000) },
+    app: { status: "available", current: "0.1.0-alpha.10", latest: "0.1.0-alpha.11", newer: true, installable: q0.get("upd") === "signed", url: "https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.0-alpha.11", changelog: "Пример заметок к релизу (превью).", checkedAt: Math.floor(Date.now() / 1000) },
     flowseal: { status: "unavailable", current: "1.10.4", latest: "1.10.5", newer: true, installable: false, unavailableReason: "Вышел Flowseal 1.10.5, но его пакет ещё не проверен для Bridge: нужен подписанный манифест, опубликованный проектом.", checkedAt: Math.floor(Date.now() / 1000) },
     checkingApp: false,
     checkingFlowseal: false,
   }),
 };
+// Every command the UI sends, in order: the UI tests (e2e/) assert on it.
+const calls: { cmd: string; args: Record<string, unknown> }[] = [];
+(window as unknown as { __bridgeCalls: typeof calls }).__bridgeCalls = calls;
 export async function invoke<T>(cmd: string, args: Record<string, unknown> = {}): Promise<T> {
+  calls.push({ cmd, args });
   const h = handlers[cmd];
   if (!h) return undefined as T;
   return h(args) as T;

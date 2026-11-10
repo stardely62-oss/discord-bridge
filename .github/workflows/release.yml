@@ -196,7 +196,7 @@ jobs:
             "- Тесты приложения и службы на Windows, clippy, сборка установщика.",
             "- Установка на Windows Server в CI: обновление поверх предыдущего релиза, повторная установка, удаление, служба; Telegram WS Proxy из Program Files (запуск, остановка, занятый порт, секрет не попадает в журнал).",
             "- Содержимое установщика: exe и служба этой сборки, файлы Flowseal по хешам манифеста, лицензии и происхождение бинарников движка; значок в exe и установщике.", "",
-            "Сверьте SHA-256 установщика с ``SHA256SUMS.txt``. Инструкция ручной проверки: docs/manual-testing.md."
+            "Сверьте SHA-256 установщика с ``SHA256SUMS.txt``. Инструкция ручной проверки: docs/maintainers/manual-testing.md."
           )
           $notes | Set-Content -Encoding utf8 dist-release/notes.md
           $env:COMMIT | Set-Content -Encoding ascii dist-release/commit.txt

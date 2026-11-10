@@ -7,19 +7,29 @@
 //! * Every failure (no network, time-out, HTTP error, GitHub rate limit, a
 //!   manifest that cannot be fetched) is reported as `Error`, never as
 //!   "up to date".
-//! * Nothing is downloaded or installed here except the small signed
-//!   manifest, which is verified to decide whether Flowseal is installable.
+//! * The checks download only the small signed manifests, which are
+//!   verified to decide whether Flowseal or a Bridge release is installable.
+//! * [`download_installer`] fetches a Bridge installer only on the user's
+//!   request and only for a verified manifest; it keeps the file only if its
+//!   size and SHA-256 are exactly the signed ones.
 
+use bridge_core::apprelease::{self, AppReleaseManifest};
 use bridge_core::updates::{
     self as core, ManifestFetch, Release, UpdateInfo, MAX_MANIFEST_BYTES, MAX_RELEASES_BYTES,
 };
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 use std::future::Future;
+use std::io::Write;
+use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+/// The whole installer download; a stalled connection ends sooner (reqwest
+/// read time-outs are per request, so this is the upper bound).
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 fn now() -> u64 {
     SystemTime::now()
@@ -32,8 +42,10 @@ fn now() -> u64 {
 pub struct Endpoints {
     /// GitHub REST API root.
     pub api: String,
-    /// Where signed Flowseal manifests are published.
+    /// Where signed Flowseal and app-release manifests are published.
     pub manifest_base: String,
+    /// Host of the release assets (the installer).
+    pub download_base: String,
 }
 
 impl Default for Endpoints {
@@ -41,6 +53,7 @@ impl Default for Endpoints {
         Endpoints {
             api: "https://api.github.com".into(),
             manifest_base: core::MANIFEST_BASE.into(),
+            download_base: "https://github.com".into(),
         }
     }
 }
@@ -89,6 +102,10 @@ pub struct UpdatesView {
 pub struct UpdateCenter {
     endpoints: Endpoints,
     keys: Vec<String>,
+    /// Keys for app-release manifests; empty = installing from the app is off.
+    app_keys: Vec<String>,
+    /// Verified manifest of the release the last app check found, if any.
+    app_release: Mutex<Option<AppReleaseManifest>>,
     app_version: String,
     app: Slot,
     flowseal: Slot,
@@ -102,12 +119,31 @@ impl UpdateCenter {
             bridge_core::manifest::TRUSTED_KEYS,
             env!("CARGO_PKG_VERSION"),
         )
+        .with_app_keys(apprelease::APP_RELEASE_TRUSTED_KEYS)
+    }
+
+    pub fn with_app_keys(mut self, keys: &[&str]) -> Self {
+        self.app_keys = keys.iter().map(|k| k.to_string()).collect();
+        self
+    }
+
+    /// The verified manifest of the newer release found by the last app
+    /// check. `None` whenever installing from the app is not possible.
+    pub fn app_release(&self) -> Option<AppReleaseManifest> {
+        self.app_release.lock().expect("lock").clone()
+    }
+
+    pub fn installer_url(&self, m: &AppReleaseManifest) -> Result<String, String> {
+        let v = apprelease::validate(m)?;
+        Ok(apprelease::installer_url(&self.endpoints.download_base, &v))
     }
 
     pub fn new(endpoints: Endpoints, keys: &[&str], app_version: &str) -> Self {
         UpdateCenter {
             endpoints,
             keys: keys.iter().map(|k| k.to_string()).collect(),
+            app_keys: Vec::new(),
+            app_release: Mutex::new(None),
             app_version: app_version.into(),
             app: Slot::default(),
             flowseal: Slot::default(),
@@ -133,7 +169,7 @@ impl UpdateCenter {
                     core::APP_REPO
                 );
                 let t = now();
-                match get(http, &url, MAX_RELEASES_BYTES).await {
+                let mut info = match get(http, &url, MAX_RELEASES_BYTES).await {
                     Ok(Some(body)) => match serde_json::from_slice::<Vec<Release>>(&body) {
                         Ok(list) => core::evaluate_app(&self.app_version, &list, t),
                         Err(e) => UpdateInfo::failed(
@@ -148,9 +184,33 @@ impl UpdateCenter {
                         t,
                     ),
                     Err(e) => UpdateInfo::failed(Some(self.app_version.clone()), e, t),
-                }
+                };
+                let release = self.app_manifest(http, &mut info).await;
+                *self.app_release.lock().expect("lock") = release;
+                info
             })
             .await
+    }
+
+    /// The signed manifest of a newer release. Requested only when a key is
+    /// pinned and the release list named a newer version.
+    async fn app_manifest(
+        &self,
+        http: &reqwest::Client,
+        info: &mut UpdateInfo,
+    ) -> Option<AppReleaseManifest> {
+        if self.app_keys.is_empty() || info.status != core::UpdateStatus::Available {
+            return None;
+        }
+        let version = semver::Version::parse(info.latest.as_deref()?).ok()?;
+        let url = apprelease::app_manifest_url(&self.endpoints.manifest_base, &version);
+        let fetch = match get(http, &url, MAX_MANIFEST_BYTES + 1).await {
+            Ok(Some(b)) => ManifestFetch::Bytes(b),
+            Ok(None) => ManifestFetch::NotFound,
+            Err(e) => ManifestFetch::Failed(e),
+        };
+        let keys: Vec<&str> = self.app_keys.iter().map(String::as_str).collect();
+        core::apply_app_manifest(info, fetch, &keys)
     }
 
     /// `current`: the active Flowseal version (None if unknown).
@@ -267,6 +327,65 @@ async fn get(http: &reqwest::Client, url: &str, limit: usize) -> Result<Option<V
         }
     }
     Ok(Some(body))
+}
+
+/// Downloads the installer described by a verified manifest into the new
+/// file `dest`. The file is kept only if exactly `installer_size` bytes
+/// arrived and their SHA-256 is the signed one; in every other case it is
+/// removed and an error is returned. More bytes than signed are never
+/// written.
+pub async fn download_installer(
+    http: &reqwest::Client,
+    url: &str,
+    m: &AppReleaseManifest,
+    dest: &Path,
+) -> Result<(), String> {
+    apprelease::validate(m)?;
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(dest)
+        .map_err(|e| format!("не удалось создать файл установщика: {e}"))?;
+    let r = async {
+        let mut resp = http
+            .get(url)
+            .timeout(DOWNLOAD_TIMEOUT)
+            .send()
+            .await
+            .map_err(|e| network_error(&e))?;
+        if !resp.status().is_success() {
+            return Err(format!(
+                "установщик не скачан: сервер ответил {}",
+                resp.status().as_u16()
+            ));
+        }
+        let mut hash = Sha256::new();
+        let mut size: u64 = 0;
+        while let Some(chunk) = resp.chunk().await.map_err(|e| network_error(&e))? {
+            size += chunk.len() as u64;
+            if size > m.installer_size {
+                return Err("установщик больше, чем указано в подписанном манифесте".into());
+            }
+            hash.update(&chunk);
+            file.write_all(&chunk)
+                .map_err(|e| format!("не удалось записать установщик: {e}"))?;
+        }
+        if size != m.installer_size {
+            return Err("установщик скачан не полностью".into());
+        }
+        let got: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
+        if got != m.installer_sha256 {
+            return Err("SHA-256 установщика не совпадает с подписанным манифестом".into());
+        }
+        file.sync_all()
+            .map_err(|e| format!("не удалось записать установщик: {e}"))
+    }
+    .await;
+    drop(file);
+    if r.is_err() {
+        let _ = std::fs::remove_file(dest);
+    }
+    r
 }
 
 #[cfg(test)]

@@ -204,6 +204,42 @@ fn canonical(manifest_path: &Path, out: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// Exact bytes to sign for a Bridge release: version + the installer file's
+/// name, size and SHA-256. Prints the SHA-256 of those bytes.
+fn app_release(version: &str, installer: &Path, out: &Path) -> Result<(), String> {
+    use bridge_core::apprelease::{self, AppReleaseManifest};
+    let v = semver::Version::parse(version).map_err(|e| e.to_string())?;
+    let data = std::fs::read(installer).map_err(|e| e.to_string())?;
+    let m = AppReleaseManifest {
+        kind: apprelease::APP_RELEASE_KIND.into(),
+        format: apprelease::APP_RELEASE_FORMAT,
+        version: version.into(),
+        installer_name: apprelease::installer_name(&v),
+        installer_size: data.len() as u64,
+        installer_sha256: manifest::sha256_hex(&data),
+    };
+    apprelease::validate(&m)?;
+    let bytes = serde_json::to_vec(&m).expect("serializable");
+    std::fs::write(out, &bytes).map_err(|e| e.to_string())?;
+    println!("{}", manifest::sha256_hex(&bytes));
+    Ok(())
+}
+
+/// Verifies a signed Bridge release manifest exactly as the app does.
+fn app_release_verify(signed: &Path, version: &str) -> Result<(), String> {
+    use bridge_core::apprelease::{verify_app_release, APP_RELEASE_TRUSTED_KEYS};
+    if APP_RELEASE_TRUSTED_KEYS.is_empty() {
+        return Err("no app release key is pinned in bridge_core::apprelease yet".into());
+    }
+    let s = std::fs::read(signed).map_err(|e| e.to_string())?;
+    let m = verify_app_release(&s, APP_RELEASE_TRUSTED_KEYS, version)?;
+    println!(
+        "OK: Bridge {} — {} ({} bytes, sha256 {})",
+        m.version, m.installer_name, m.installer_size, m.installer_sha256
+    );
+    Ok(())
+}
+
 fn verify(path: &Path) -> Result<(), String> {
     let s: SignedManifest =
         serde_json::from_slice(&std::fs::read(path).map_err(|e| e.to_string())?)
@@ -250,11 +286,13 @@ fn main() -> ExitCode {
         Some("verify") if a.len() == 3 => verify(Path::new(&a[2])),
         Some("catalog-verify") if a.len() == 4 => catalog_verify(Path::new(&a[2]), Path::new(&a[3])),
         Some("catalog") if a.len() == 3 => catalog(Path::new(&a[2])),
+        Some("app-release") if a.len() == 5 => app_release(&a[2], Path::new(&a[3]), Path::new(&a[4])),
+        Some("app-release-verify") if a.len() == 4 => app_release_verify(Path::new(&a[2]), &a[3]),
         Some("specs") => {
             println!("{}", serde_json::to_string(&bridge_core::strategy::options::option_specs()).expect("serializable"));
             Ok(())
         }
-        _ => Err("usage: bridge-tools bundle <lock> <zip> <out> | sign <manifest> <out> | verify <signed>".into()),
+        _ => Err("usage: bridge-tools bundle <lock> <zip> <out> | sign <manifest> <out> | verify <signed> | app-release <version> <installer> <out> | app-release-verify <signed> <version>".into()),
     };
     match r {
         Ok(()) => ExitCode::SUCCESS,

@@ -1,6 +1,6 @@
 # Участие в разработке
 
-1. Прочитайте [ARCHITECTURE.md](ARCHITECTURE.md) и [docs/building.md](docs/building.md).
+1. Прочитайте [ARCHITECTURE.md](ARCHITECTURE.md) и [docs/maintainers/building.md](docs/maintainers/building.md).
 2. Создайте ветку от `main`, небольшие осмысленные коммиты.
 3. Перед PR:
    ```bash

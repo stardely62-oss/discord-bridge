@@ -54,7 +54,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          env=$(gh api "repos/${GITHUB_REPOSITORY}/environments/flowseal-sign") || { echo "::error::environment flowseal-sign does not exist — see docs/release-security.md"; exit 1; }
+          env=$(gh api "repos/${GITHUB_REPOSITORY}/environments/flowseal-sign") || { echo "::error::environment flowseal-sign does not exist — see docs/maintainers/release-security.md"; exit 1; }
           echo "$env" | jq -e '[.protection_rules[]?|select(.type=="required_reviewers")]|length>0' >/dev/null || { echo "::error::flowseal-sign has no required reviewers"; exit 1; }
           echo "$env" | jq -e '.deployment_branch_policy != null' >/dev/null || { echo "::error::flowseal-sign is not limited to selected branches"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

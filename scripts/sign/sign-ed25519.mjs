@@ -5,12 +5,15 @@
 //   node scripts/sign/sign-ed25519.mjs --payload <file> --out <signed.json>
 //     --pubkey <pinned.b64> --expect-sha256 <hex> --key-env <ENV_NAME>
 //     [--expect-version <v> --expect-source-sha256 <hex>]
+//     [--expect-app-version <v> --expect-installer-sha256 <hex>]
 //
 // It refuses to sign unless
 // - the payload's SHA-256 is the one the build job reported (job output,
 //   not the artifact store);
 // - the payload is a Flowseal manifest for the reviewed version and archive
-//   hash, from the official Flowseal release URL;
+//   hash, from the official Flowseal release URL — or, with the app options,
+//   a Bridge release manifest for the reviewed version and installer hash
+//   (exactly one of the two kinds must be requested);
 // - the key from the environment derives to the pinned public key.
 // It then verifies its own signature with the pinned key. The key is read
 // from the environment once, removed from it and never written anywhere;
@@ -54,6 +57,21 @@ if (version !== undefined || sourceSha !== undefined) {
   const official = `https://github.com/Flowseal/zapret-discord-youtube/releases/download/${version}/`;
   if (typeof doc.sourceUrl !== "string" || !doc.sourceUrl.startsWith(official)) die("payload source is not the official Flowseal release");
   if (!Array.isArray(doc.files) || doc.files.length === 0) die("payload lists no files");
+}
+
+const appVersion = opt("--expect-app-version");
+const installerSha = opt("--expect-installer-sha256");
+const wantsApp = appVersion !== undefined || installerSha !== undefined;
+const wantsFlowseal = version !== undefined || sourceSha !== undefined;
+if (wantsApp === wantsFlowseal) die("say what is signed: either the Flowseal options or the app release options");
+if (wantsApp) {
+  if (!appVersion || !/^[0-9a-f]{64}$/.test(installerSha ?? "")) die("--expect-app-version and --expect-installer-sha256 go together");
+  if (doc.kind !== "bridge-app-release") die("payload is not a Bridge release manifest");
+  if (doc.version !== appVersion) die("payload is not for the requested Bridge version");
+  if (doc.installerSha256 !== installerSha) die("payload is not for the reviewed installer SHA-256");
+  if (doc.installerName !== `Bridge_${appVersion}_x64-setup.exe`) die("payload names another installer");
+} else if (doc.kind !== undefined) {
+  die("payload is not a Flowseal manifest");
 }
 
 const pinned = Buffer.from(fs.readFileSync(pubPath, "utf8").trim(), "base64");

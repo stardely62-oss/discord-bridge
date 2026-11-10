@@ -1,0 +1,190 @@
+name: App release manifest
+
+# Publishes the signed manifest that lets installed Bridge clients install a
+# published Bridge release from inside the app. Run manually from main after
+# the release `v<version>` is published and its installer reviewed. The same
+# four isolated jobs as the Flowseal manifest:
+#
+#   build   — downloads the installer and SHA256SUMS.txt of the release,
+#             checks both against the reviewed SHA-256, and builds the exact
+#             bytes to sign. No key, read-only token.
+#   sign    — environment `app-release-sign` (owner approval, main only).
+#             Runs only Node's built-in crypto on the payload whose SHA-256
+#             the build job reported. Uploads only the signed envelope.
+#   verify  — the Rust verifier (key compiled into the app) accepts the
+#             envelope and it carries exactly the built payload. No key.
+#   publish — creates the release `app-<version>` from the verified file.
+#             Write token, no key, no checkout, no build; never replaces an
+#             existing release.
+#
+# The key signs app releases only. It is not the Flowseal manifest key and
+# not the catalog key (docs/maintainers/release-security.md).
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Bridge version without the v, e.g. 0.2.0"
+        required: true
+      sha256:
+        description: "Reviewed SHA-256 of Bridge_<version>_x64-setup.exe"
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: app-manifest
+  cancel-in-progress: false
+
+env:
+  VERSION: ${{ github.event.inputs.version }}
+  INSTALLER_SHA256: ${{ github.event.inputs.sha256 }}
+
+jobs:
+  build:
+    name: Build and verify (no key, read-only)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      payload_sha256: ${{ steps.payload.outputs.sha256 }}
+    steps:
+      - name: Inputs
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || { echo "bad version"; exit 1; }
+          [[ "$INSTALLER_SHA256" =~ ^[0-9a-f]{64}$ ]] || { echo "bad sha256"; exit 1; }
+      - name: The signing environment is protected (owner approval, main only)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          env=$(gh api "repos/${GITHUB_REPOSITORY}/environments/app-release-sign") || { echo "::error::environment app-release-sign does not exist — see docs/maintainers/release-security.md"; exit 1; }
+          echo "$env" | jq -e '[.protection_rules[]?|select(.type=="required_reviewers")]|length>0' >/dev/null || { echo "::error::app-release-sign has no required reviewers"; exit 1; }
+          echo "$env" | jq -e '.deployment_branch_policy != null' >/dev/null || { echo "::error::app-release-sign is not limited to selected branches"; exit 1; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - name: Download the published installer and check the reviewed hash
+        run: |
+          set -euo pipefail
+          name="Bridge_${VERSION}_x64-setup.exe"
+          base="https://github.com/${GITHUB_REPOSITORY}/releases/download/v${VERSION}"
+          curl -fsSL --retry 3 "$base/$name" -o "$name"
+          curl -fsSL --retry 3 "$base/SHA256SUMS.txt" -o SHA256SUMS.txt
+          echo "$INSTALLER_SHA256  $name" | sha256sum -c -
+          grep -qx "$INSTALLER_SHA256  $name" SHA256SUMS.txt || { echo "::error::SHA256SUMS.txt of the release names another hash"; exit 1; }
+      - name: Tests (manifests, signatures)
+        run: cargo test -p bridge-core -p bridge-tools
+      - name: Exact bytes to sign
+        id: payload
+        run: |
+          mkdir payload
+          sha=$(cargo run -q -p bridge-tools -- app-release "$VERSION" "Bridge_${VERSION}_x64-setup.exe" payload/payload.json)
+          [[ "$sha" =~ ^[0-9a-f]{64}$ ]] || { echo "bad payload hash"; exit 1; }
+          jq -e --arg v "$VERSION" --arg s "$INSTALLER_SHA256" '.kind=="bridge-app-release" and .version==$v and .installerSha256==$s' payload/payload.json >/dev/null
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          echo "payload SHA-256: $sha"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-release-payload
+          path: payload/payload.json
+          retention-days: 1
+          if-no-files-found: error
+
+  sign:
+    name: Sign (protected environment, built-in Node only)
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: app-release-sign
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/sign
+            keys
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: app-release-payload
+          path: payload
+      - name: Sign the payload reported by the build job
+        env:
+          APP_RELEASE_SIGNING_KEY: ${{ secrets.APP_RELEASE_SIGNING_KEY }}
+          EXPECT_SHA256: ${{ needs.build.outputs.payload_sha256 }}
+        run: >-
+          node scripts/sign/sign-ed25519.mjs
+          --payload payload/payload.json
+          --out "app-${VERSION}.signed.json"
+          --pubkey keys/app-release-public-key.b64
+          --expect-sha256 "$EXPECT_SHA256"
+          --expect-app-version "$VERSION"
+          --expect-installer-sha256 "$INSTALLER_SHA256"
+          --key-env APP_RELEASE_SIGNING_KEY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: app-release-signed
+          path: app-*.signed.json
+          retention-days: 1
+          if-no-files-found: error
+
+  verify:
+    name: Verify with the app's verifier (no key)
+    needs: [build, sign]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      signed_sha256: ${{ steps.check.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: app-release-signed
+          path: signed
+      - name: Trusted key, signature, manifest, and exactly the built payload
+        id: check
+        env:
+          EXPECT_SHA256: ${{ needs.build.outputs.payload_sha256 }}
+        run: |
+          f="signed/app-${VERSION}.signed.json"
+          cargo run -q -p bridge-tools -- app-release-verify "$f" "$VERSION"
+          got=$(jq -r .manifest "$f" | base64 -d | sha256sum | cut -d' ' -f1)
+          [ "$got" = "$EXPECT_SHA256" ] || { echo "::error::signed payload differs from the built one"; exit 1; }
+          [ "$(jq -r 'keys|join(",")' "$f")" = "keyId,manifest,signature" ] || { echo "::error::unexpected fields in the envelope"; exit 1; }
+          echo "sha256=$(sha256sum "$f" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: Publish (write token, no key)
+    needs: [build, verify]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: app-release-signed
+          path: signed
+      - name: Create the release (never replaces an existing one)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECT_SHA256: ${{ needs.verify.outputs.signed_sha256 }}
+        run: |
+          f="signed/app-${VERSION}.signed.json"
+          echo "$EXPECT_SHA256  $f" | sha256sum -c -
+          if gh release view "app-${VERSION}" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::release app-${VERSION} already exists — it is never replaced"; exit 1
+          fi
+          gh release create "app-${VERSION}" "$f" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Bridge ${VERSION} — signed release manifest" \
+            --notes "Подписанный манифест релиза Bridge ${VERSION}: позволяет установить его из приложения. Установщик: релиз v${VERSION}, SHA-256 ${INSTALLER_SHA256}. Это служебный релиз, программа — в релизе v${VERSION}." \
+            --latest=false

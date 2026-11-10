@@ -62,6 +62,20 @@ cargo run -p bridge-tools -- specs > scripts/preview/specs.json
 pnpm vite --config scripts/preview/vite.config.ts   # http://localhost:1430/?s=running|stopped|onboarding
 ```
 
+### Тесты интерфейса
+
+`e2e/` — сценарии Playwright поверх того же предпросмотра: настоящий React-интерфейс,
+подставной бэкенд. Проверяется, что разделы открываются без ошибок, какие команды
+интерфейс отправляет бэкенду (`window.__bridgeCalls` в `mock-core.ts`) и что статусы
+не показывают неподтверждённого. Службу, движок и Windows эти тесты не затрагивают.
+
+```bash
+pnpm exec playwright install chromium   # один раз
+pnpm e2e                                # сам поднимает сервер предпросмотра
+```
+
+Нужны `catalog.json` и `specs.json` из команд выше. В CI это задание «Interface».
+
 ## Telegram WS Proxy engine
 
 Before `pnpm tauri build` on Windows, build the headless engine (Python 3.11.9 must be on PATH):

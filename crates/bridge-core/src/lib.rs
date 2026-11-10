@@ -6,6 +6,7 @@
 //! argument vector, strategy diff, schema migrations, signed bundle manifests,
 //! atomic file writes and the IPC protocol shared with the privileged helper.
 
+pub mod apprelease;
 pub mod atomic;
 pub mod auto;
 pub mod batparse;

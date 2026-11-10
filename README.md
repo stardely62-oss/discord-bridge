@@ -79,7 +79,7 @@ Flowseal) и `sources-…` (исходный код сторонних комп�
 | **Карточки сервисов** | Discord, YouTube, Google и Cloudflare: какие адреса Flowseal обрабатывает для каждого из них. Видны настоящие списки Flowseal, а не пересказ |
 | **Каталог наборов** | Дополнительные адреса игр и сервисов из подписанного каталога, плюс свои домены и IP |
 | **Диагностика** | Проверка DNS и HTTPS, состояния службы и движка, целостности файлов, конфликтов с другими обходами. Статусы только по фактам: непроверенное так и помечено |
-| **Обновления** | Проверка новых версий Bridge и Flowseal |
+| **Обновления** | Проверка новых версий Bridge и Flowseal. Новую версию Bridge с подписанным манифестом можно установить из приложения — после вашего подтверждения |
 | **Трей** | Bridge работает в фоне. Из трея можно включить или выключить обход, сменить стратегию, запустить Discord |
 
 Голосовые каналы, звонки и отдельные сервисы могут не заработать у конкретного
@@ -256,8 +256,8 @@ flowchart TB
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Архитектура, привилегии, IPC, обновления |
 | [docs/strategies.md](docs/strategies.md) | Формат стратегий, импорт, редактор, сравнение |
 | [telegram-proxy/README.md](telegram-proxy/README.md) | Как собран и запускается Telegram WS Proxy |
-| [docs/manual-testing.md](docs/manual-testing.md) | Чек-лист ручной проверки на Windows |
-| [docs/building.md](docs/building.md) | Сборка из исходников и выпуск релизов |
+| [docs/maintainers/manual-testing.md](docs/maintainers/manual-testing.md) | Чек-лист ручной проверки на Windows |
+| [docs/maintainers/building.md](docs/maintainers/building.md) | Сборка из исходников и выпуск релизов |
 | [CHANGELOG.md](CHANGELOG.md) | История изменений |
 | [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) | Сторонние компоненты и их лицензии |
 
@@ -283,7 +283,7 @@ flowchart TB
 Стратегии Flowseal импортируются без изменений: тесты проверяют, что аргументы `winws`
 совпадают с оригинальными BAT-файлами байт в байт, включая порядок.
 
-Сборка описана в [docs/building.md](docs/building.md), правила участия — в
+Сборка описана в [docs/maintainers/building.md](docs/maintainers/building.md), правила участия — в
 [CONTRIBUTING.md](CONTRIBUTING.md). Внутренние имена (`discord-bridge.exe`, служба
 `Discord Bridge Helper`, пути настроек) сохранены ради совместимости с прежними версиями.
 
@@ -368,7 +368,7 @@ flowchart TB
 Исходный код Bridge распространяется по лицензии [MIT](LICENSE). У сторонних
 компонентов свои лицензии: MIT, LGPLv3/GPLv2, PSF и другие. Их тексты, версии и
 ссылки на исходный код — в [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md); проверяемые
-факты и открытые вопросы — в [docs/third-party-compliance.md](docs/third-party-compliance.md).
+факты и открытые вопросы — в [docs/maintainers/third-party-compliance.md](docs/maintainers/third-party-compliance.md).
 До v0.1.0-alpha.10 проект назывался Discord Bridge.
 
 Другие проекты автора — на [stardely62-oss.github.io](https://stardely62-oss.github.io/).

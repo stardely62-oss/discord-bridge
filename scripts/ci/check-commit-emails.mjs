@@ -60,7 +60,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
   if (bad.length) {
     console.error("Commits with a non-noreply email (masked):");
     for (const b of bad) console.error(`  ${b}`);
-    console.error("Use your GitHub noreply address: git config user.email <id>+<login>@users.noreply.github.com — see docs/release-security.md.");
+    console.error("Use your GitHub noreply address: git config user.email <id>+<login>@users.noreply.github.com — see docs/maintainers/release-security.md.");
     process.exit(1);
   }
   console.log(`ok: ${commits.length} commit(s) use noreply addresses only`);

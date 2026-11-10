@@ -2,6 +2,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Activity, AppWindow, ArrowUpCircle, CheckCircle2, Home, Info, Layers, Settings as SettingsIcon, X, XCircle } from "lucide-react";
 import { useMemo, type ReactNode } from "react";
 import { api, errorText } from "../../services/api";
+import { useAppUpdate } from "../../updates/install";
 import { noticesFor, type Notice } from "../../updates/notices";
 import { Page, useApp, useTr } from "../../stores/app";
 import { Button, StatusDot } from "../ui";
@@ -102,19 +103,22 @@ export function Toasts() {
  * Unobtrusive update notices at the bottom of the main column: shown once per
  * version and session, independent of the current page. They take their own
  * space below the page (not an overlay), so they never cover its controls.
- * Nothing is downloaded or installed from here.
+ * Nothing is downloaded or installed without the user's confirmation.
  */
 export function UpdateNotices() {
   const { updates, seenNotices, dismissNotice, openSettings, toast } = useApp();
   const tr = useTr();
   const reduce = useReducedMotion();
   const notices = useMemo(() => noticesFor(updates, new Set(seenNotices)), [updates, seenNotices]);
+  const appUpdate = useAppUpdate();
   const text = (n: Notice): { title: string; body: string } => {
     switch (n.kind) {
       case "app":
         return {
           title: tr(`Доступна новая версия Bridge — ${n.version}`, `A new Bridge version is available — ${n.version}`),
-          body: tr("Установка вручную: скачайте установщик со страницы релиза.", "Install it manually from the release page."),
+          body: appUpdate.canInstall
+            ? tr("Подпись релиза проверена. Bridge может скачать и запустить установщик сам — только по вашему подтверждению.", "The release signature is verified. Bridge can download and start the installer itself — only with your confirmation.")
+            : tr("Установка вручную: скачайте установщик со страницы релиза.", "Install it manually from the release page."),
         };
       case "flowsealReady":
         return {
@@ -149,10 +153,15 @@ export function UpdateNotices() {
                   <div className="font-medium">{t.title}</div>
                   <div className="text-xs text-ink-muted">{t.body}</div>
                   <div className="flex flex-wrap gap-2 pt-1.5">
+                    {n.kind === "app" && appUpdate.canInstall && (
+                      <Button size="sm" variant="primary" loading={appUpdate.installing} onClick={appUpdate.install}>
+                        {tr("Установить", "Install")}
+                      </Button>
+                    )}
                     {n.kind === "app" && (
                       <Button
                         size="sm"
-                        variant="primary"
+                        variant={appUpdate.canInstall ? "secondary" : "primary"}
                         onClick={() => {
                           later();
                           api.openExternal(`app-release:${n.version}`).catch((e) => toast("error", errorText(e)));

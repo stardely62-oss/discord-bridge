@@ -29,6 +29,7 @@ serde_json.workspace = true
 toml.workspace = true
 thiserror.workspace = true
 base64.workspace = true
+sha2.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net", "sync", "io-util"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json", "http2"] }
 tracing = "0.1"
