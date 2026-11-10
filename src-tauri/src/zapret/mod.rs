@@ -5,7 +5,7 @@
 //! maps those results, runs Auto through helper trials, and performs
 //! Flowseal updates as a transaction (install → activate → verify → revert).
 
-use crate::diagnostics::{quick_probe, CheckItem};
+use crate::diagnostics::{quick_probe, youtube_probe, CheckItem};
 use crate::state::{AppState, BundleState, BundleSummary};
 use bridge_core::auto::{run_auto, AutoConfig, AutoEnd, AutoEnv, TryOutcome};
 use bridge_core::catalog::resource_index;
@@ -390,6 +390,13 @@ impl AppAuto<'_> {
     }
 }
 
+impl AppAuto<'_> {
+    /// True unless the user asked Auto to require YouTube and it does not answer.
+    async fn youtube_ok(&self) -> bool {
+        !self.state.settings().auto_check_youtube || youtube_probe(&self.state.http).await.ok
+    }
+}
+
 impl AutoEnv for AppAuto<'_> {
     async fn begin(&mut self) -> Result<(), String> {
         match self.state.helper.request(Request::BeginTrial).await {
@@ -404,7 +411,7 @@ impl AutoEnv for AppAuto<'_> {
         if st.state != EngineState::Running {
             return None;
         }
-        if quick_probe(&self.state.http).await.ok {
+        if quick_probe(&self.state.http).await.ok && self.youtube_ok().await {
             st.strategy_id
         } else {
             None
@@ -424,7 +431,13 @@ impl AutoEnv for AppAuto<'_> {
             Ok(r) => r,
         };
         match r.outcome.as_str() {
-            "running" if r.https_ok == Some(true) => TryOutcome::Working,
+            "running" if r.https_ok == Some(true) => {
+                if self.youtube_ok().await {
+                    TryOutcome::Working
+                } else {
+                    TryOutcome::NotWorking("Discord отвечает, а YouTube — нет".into())
+                }
+            }
             "running" => TryOutcome::NotWorking("Discord API не ответил корректно".into()),
             "conflicts" | "helperUnavailable" => TryOutcome::Fatal(r.message.unwrap_or_default()),
             _ => TryOutcome::EngineFailed(r.message.unwrap_or_else(|| r.outcome.clone())),

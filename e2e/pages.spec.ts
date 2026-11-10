@@ -66,6 +66,14 @@ test.describe("Diagnostics", () => {
     await app.sent("run_diagnostics");
   });
 
+  test("YouTube is checked in its own group and does not change the Discord verdict", async ({ app }) => {
+    await app.open("s=running&readme=1&yt=bad");
+    await app.go("Диагностика");
+    await expect(app.main).toContainText("redirector.googlevideo.com");
+    await app.go("Главная");
+    await expect(app.main.getByRole("heading", { level: 1 })).toHaveText("Discord доступен");
+  });
+
   test("TCP timestamps are changed only after an explicit confirmation", async ({ app, page }) => {
     await app.open();
     await app.go("Диагностика");
@@ -113,6 +121,18 @@ test.describe("Settings", () => {
     await sw.click();
     const save = await app.sent("save_settings");
     expect((save.args.settings as { autoInstallFlowseal: boolean }).autoInstallFlowseal).toBe(true);
+  });
+
+  test("requiring YouTube in auto-selection is off by default and is the user's choice", async ({ app }) => {
+    await app.open();
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обход", exact: true }).click();
+    const sw = app.main.getByRole("switch", { name: "Учитывать YouTube при автоподборе" });
+    await expect(sw).not.toBeChecked();
+    await expect(app.main).toContainText("скорость видео не измеряется");
+    await app.calls();
+    await sw.click();
+    expect(((await app.sent("save_settings")).args.settings as { autoCheckYoutube: boolean }).autoCheckYoutube).toBe(true);
   });
 
   test("all settings tabs open", async ({ app }) => {

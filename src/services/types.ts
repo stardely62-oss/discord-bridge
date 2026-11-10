@@ -294,6 +294,8 @@ export interface Settings {
   telegramProxy: TelegramProxySettings;
   autoCandidates: string[];
   autoMaxAttempts: number;
+  /** Auto keeps a strategy only if YouTube answers too. Off by default. */
+  autoCheckYoutube?: boolean;
   voiceConfirmations: Record<string, { at: number; works: boolean; strategyId: string }>;
   launchMode: "withBypass" | "withoutBypass";
 }

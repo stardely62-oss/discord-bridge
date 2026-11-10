@@ -455,6 +455,15 @@ export default function SettingsPage() {
                 </Button>
               </div>
             </SettingRow>
+            <SettingRow
+              title={tr("Учитывать YouTube при автоподборе", "Require YouTube in auto-selection")}
+              description={tr(
+                "Автоподбор оставит стратегию, только если кроме Discord отвечает и YouTube. Проверяется, что соединения устанавливаются; скорость видео не измеряется.",
+                "Auto-selection keeps a strategy only if YouTube answers as well as Discord. It checks that connections are established; video speed is not measured.",
+              )}
+            >
+              <Switch label={tr("Учитывать YouTube при автоподборе", "Require YouTube in auto-selection")} checked={!!s.autoCheckYoutube} onChange={(v) => set("autoCheckYoutube", v)} />
+            </SettingRow>
             <SettingRow title={tr("Попыток при автоподборе", "Auto-selection attempts")} description={tr("От 1 до 50.", "From 1 to 50.")}>
               <NumberField ariaLabel={tr("Попыток при автоподборе", "Auto-selection attempts")} className="w-28" min={1} max={50} value={s.autoMaxAttempts} onCommit={(v) => set("autoMaxAttempts", Math.max(1, Math.min(50, Number(v) || 8)))} />
             </SettingRow>

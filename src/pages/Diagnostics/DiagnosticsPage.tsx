@@ -100,7 +100,8 @@ export default function DiagnosticsPage() {
     { id: "zapret", title: "Zapret" },
     { id: "system", title: tr("Система", "System") },
     { id: "dns", title: "DNS" },
-    { id: "https", title: "HTTPS" },
+    { id: "https", title: tr("HTTPS — Discord", "HTTPS — Discord") },
+    { id: "youtube", title: "YouTube" },
     { id: "udp", title: tr("UDP и голос", "UDP & voice") },
   ];
   const byGroup = (g: string): CheckItem[] => report?.items.filter((i) => i.group === g) ?? [];
@@ -221,8 +222,8 @@ export default function DiagnosticsPage() {
               </div>
               <p className="mt-1 max-w-xl text-xs text-ink-muted">
                 {tr(
-                  `Перебирает стратегии (максимум ${overview?.settings.autoMaxAttempts ?? 8} попыток, общий лимит 5 минут) и оставляет первую, при которой Discord отвечает по HTTPS. Голосовые каналы Auto проверить не может — после подбора проверьте голос вручную. При неудаче возвращается последняя рабочая стратегия.`,
-                  `Tries strategies (max ${overview?.settings.autoMaxAttempts ?? 8} attempts, 5-minute limit) and keeps the first one with which Discord answers over HTTPS. Auto cannot test voice — check it manually afterwards. On failure the last working strategy is restored.`,
+                  `Перебирает стратегии (максимум ${overview?.settings.autoMaxAttempts ?? 8} попыток, общий лимит 5 минут) и оставляет первую, при которой Discord отвечает по HTTPS${overview?.settings.autoCheckYoutube ? ", и YouTube тоже" : ""}. Голосовые каналы Auto проверить не может — после подбора проверьте голос вручную. При неудаче возвращается последняя рабочая стратегия.`,
+                  `Tries strategies (max ${overview?.settings.autoMaxAttempts ?? 8} attempts, 5-minute limit) and keeps the first one with which Discord answers over HTTPS${overview?.settings.autoCheckYoutube ? ", and YouTube too" : ""}. Auto cannot test voice — check it manually afterwards. On failure the last working strategy is restored.`,
                 )}
               </p>
             </div>

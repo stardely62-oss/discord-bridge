@@ -68,6 +68,10 @@ pub struct Settings {
     /// Strategy ids the Auto mode may try, in order. Empty = all built-ins.
     pub auto_candidates: Vec<String>,
     pub auto_max_attempts: u32,
+    /// Auto keeps a strategy only if YouTube answers too (the endpoints of
+    /// `diagnostics::YOUTUBE_TARGETS`), not Discord alone. Off by default.
+    /// Missing in older files: off.
+    pub auto_check_youtube: bool,
     /// User confirmations of voice chat, per strategy id.
     /// Voice confirmations keyed by the effective configuration hash
     /// (`bridge_core::strategy::config_hash`): any relevant change — rules,
@@ -117,6 +121,7 @@ impl Default for Settings {
             auto_install_flowseal: false,
             auto_candidates: vec![],
             auto_max_attempts: 8,
+            auto_check_youtube: false,
             voice_confirmations: BTreeMap::new(),
             launch_mode: LaunchMode::WithBypass,
             telegram_proxy: Default::default(),
