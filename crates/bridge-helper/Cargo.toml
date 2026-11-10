@@ -1,6 +1,6 @@
 [package]
 name = "discord-bridge-helper"
-description = "Privileged helper service of Discord Bridge: runs the verified winws engine on behalf of the UI"
+description = "Privileged helper service of Bridge: runs the verified winws engine on behalf of the UI"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

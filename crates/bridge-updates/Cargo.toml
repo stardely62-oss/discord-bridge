@@ -1,6 +1,6 @@
 [package]
 name = "bridge-updates"
-description = "Update checks for Discord Bridge and Flowseal over the GitHub API (no installation)"
+description = "Update checks for Bridge and Flowseal over the GitHub API, and the verified download of a Bridge installer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

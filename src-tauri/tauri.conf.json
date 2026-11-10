@@ -39,8 +39,8 @@
     "publisher": "Bridge contributors",
     "copyright": "MIT License. Flowseal, zapret (bol-van) and WinDivert are distributed under their own licenses.",
     "category": "Utility",
-    "shortDescription": "Лаунчер Discord с управлением Flowseal Zapret",
-    "longDescription": "Bridge запускает официальный клиент Discord и управляет встроенным Flowseal Zapret (winws) через ограниченную системную службу. Не является продуктом Discord Inc.",
+    "shortDescription": "Обход блокировок Discord, YouTube и Telegram",
+    "longDescription": "Bridge помогает вернуть доступ к Discord, YouTube и Telegram: управляет встроенным Flowseal Zapret (winws) через ограниченную системную службу и локальным Telegram WS Proxy, запускает официальный клиент Discord. Не VPN. Не является продуктом Discord Inc., Google или Telegram.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -1,6 +1,6 @@
 [package]
 name = "discord-bridge"
-description = "Discord Bridge — Windows launcher for the official Discord client with managed Flowseal Zapret"
+description = "Bridge — access to Discord, YouTube and Telegram on Windows: managed Flowseal Zapret and a local Telegram WS Proxy"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

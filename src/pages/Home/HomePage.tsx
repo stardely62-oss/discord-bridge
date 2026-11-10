@@ -317,7 +317,7 @@ function ZapretCard() {
         </div>
         <Pill level={running ? "ok" : "unknown"}>{running ? tr("включён", "on") : tr("выключен", "off")}</Pill>
       </div>
-      <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{tr("Работает для Discord и выбранных приложений — игр, лаунчеров, сервисов.", "Works for Discord and the apps you choose — games, launchers, services.")}</p>
+      <p className="mt-3 text-[13px] leading-relaxed text-ink-muted">{tr("Работает для Discord, YouTube и выбранных приложений — игр, лаунчеров, сервисов.", "Works for Discord, YouTube and the apps you choose — games, launchers, services.")}</p>
       <div className="mt-3 divide-y divide-line">
         <Stat label={tr("Стратегия", "Strategy")}>
           {st?.name ?? "—"}
