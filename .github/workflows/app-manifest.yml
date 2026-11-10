@@ -74,7 +74,8 @@ jobs:
           curl -fsSL --retry 3 "$base/$name" -o "$name"
           curl -fsSL --retry 3 "$base/SHA256SUMS.txt" -o SHA256SUMS.txt
           echo "$INSTALLER_SHA256  $name" | sha256sum -c -
-          grep -qx "$INSTALLER_SHA256  $name" SHA256SUMS.txt || { echo "::error::SHA256SUMS.txt of the release names another hash"; exit 1; }
+          # release.yml writes the file on Windows: lines end with CR LF.
+          tr -d '\r' < SHA256SUMS.txt | grep -qx "$INSTALLER_SHA256  $name" || { echo "::error::SHA256SUMS.txt of the release names another hash"; exit 1; }
       - name: Tests (manifests, signatures)
         run: cargo test -p bridge-core -p bridge-tools
       - name: Exact bytes to sign
