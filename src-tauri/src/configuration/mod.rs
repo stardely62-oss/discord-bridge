@@ -64,6 +64,10 @@ pub struct Settings {
     /// Strategy ids the Auto mode may try, in order. Empty = all built-ins.
     pub auto_candidates: Vec<String>,
     pub auto_max_attempts: u32,
+    /// Internet provider chosen by the user (an id from
+    /// `bridge_core::hints`), used only to order the Auto candidates.
+    /// Never detected and never sent anywhere. Missing in older files: none.
+    pub provider: Option<String>,
     /// User confirmations of voice chat, per strategy id.
     /// Voice confirmations keyed by the effective configuration hash
     /// (`bridge_core::strategy::config_hash`): any relevant change — rules,
@@ -112,6 +116,7 @@ impl Default for Settings {
             check_updates_on_start: true,
             auto_candidates: vec![],
             auto_max_attempts: 8,
+            provider: None,
             voice_confirmations: BTreeMap::new(),
             launch_mode: LaunchMode::WithBypass,
             telegram_proxy: Default::default(),
@@ -135,6 +140,11 @@ impl Settings {
             .map_err(|e| e.to_string())?;
         if self.auto_max_attempts == 0 || self.auto_max_attempts > 50 {
             return Err("число попыток Auto должно быть от 1 до 50".into());
+        }
+        if let Some(p) = &self.provider {
+            if !bridge_core::hints::valid_id(p) {
+                return Err("недопустимый идентификатор провайдера".into());
+            }
         }
         if let Some(p) = &self.discord_path {
             if p.len() > 1024 {

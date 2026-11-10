@@ -495,7 +495,16 @@ pub async fn auto_select(app: AppHandle, state: &AppState) -> AutoProgress {
         let sm = state.strategies.lock().expect("lock");
         let all: Vec<String> = sm.catalog.strategies.iter().map(|s| s.id.clone()).collect();
         let mut c: Vec<String> = if settings.auto_candidates.is_empty() {
-            all
+            // Strategies reported as working at the user's provider go first;
+            // an explicit candidate list keeps the user's own order.
+            match settings
+                .provider
+                .as_deref()
+                .and_then(|p| bridge_core::hints::builtin().provider(p))
+            {
+                Some(p) => bridge_core::hints::order_candidates(all, &p.strategies),
+                None => all,
+            }
         } else {
             settings
                 .auto_candidates

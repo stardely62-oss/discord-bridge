@@ -292,8 +292,17 @@ export interface Settings {
   telegramProxy: TelegramProxySettings;
   autoCandidates: string[];
   autoMaxAttempts: number;
+  /** Provider chosen by the user (an id from ProviderHints); orders the Auto candidates only. */
+  provider?: string | null;
   voiceConfirmations: Record<string, { at: number; works: boolean; strategyId: string }>;
   launchMode: "withBypass" | "withoutBypass";
+}
+
+/** Strategies reported as working per provider (shipped with the app). */
+export interface ProviderHints {
+  schemaVersion: number;
+  updated: string;
+  providers: { id: string; name: { ru: string; en: string }; strategies: string[] }[];
 }
 
 export interface BundleSummary {

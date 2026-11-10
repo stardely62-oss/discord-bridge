@@ -88,6 +88,25 @@ test.describe("Settings", () => {
     expect((save.args.settings as { autoLaunchDiscord: boolean }).autoLaunchDiscord).toBe(true);
   });
 
+  test("the provider is the user's own choice and only orders auto-selection", async ({ app }) => {
+    await app.open("s=running&hints=demo");
+    await app.go("Настройки");
+    await app.main.getByRole("tab", { name: "Обход", exact: true }).click();
+    const provider = app.main.getByRole("combobox", { name: "provider" });
+    await expect(provider).toHaveValue("");
+    await expect(app.main).toContainText("Bridge не определяет провайдера сам и никуда его не отправляет");
+    await app.calls();
+    await provider.selectOption({ label: "Ростелеком" });
+    const save = await app.sent("save_settings");
+    expect((save.args.settings as { provider: string }).provider).toBe("rostelecom");
+    await expect(app.main).toContainText("стратегий из отчётов пользователей: 2");
+    await provider.selectOption({ label: "ТТК" });
+    await expect(app.main).toContainText("Отчётов для этого провайдера пока нет");
+    await app.calls();
+    await provider.selectOption({ label: "Не указан" });
+    expect((await app.sent("save_settings")).args.settings).toHaveProperty("provider", null);
+  });
+
   test("all settings tabs open", async ({ app }) => {
     await app.open();
     await app.go("Настройки");

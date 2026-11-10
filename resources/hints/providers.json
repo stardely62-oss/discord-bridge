@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "updated": "2026-11-10",
+  "providers": [
+    { "id": "rostelecom", "name": { "ru": "Ростелеком", "en": "Rostelecom" }, "strategies": [] },
+    { "id": "mts-home", "name": { "ru": "МТС (домашний)", "en": "MTS (home)" }, "strategies": [] },
+    { "id": "mts-mobile", "name": { "ru": "МТС (мобильный)", "en": "MTS (mobile)" }, "strategies": [] },
+    { "id": "mgts", "name": { "ru": "МГТС", "en": "MGTS" }, "strategies": [] },
+    { "id": "beeline-home", "name": { "ru": "Билайн (домашний)", "en": "Beeline (home)" }, "strategies": [] },
+    { "id": "beeline-mobile", "name": { "ru": "Билайн (мобильный)", "en": "Beeline (mobile)" }, "strategies": [] },
+    { "id": "megafon", "name": { "ru": "МегаФон", "en": "MegaFon" }, "strategies": [] },
+    { "id": "t2", "name": { "ru": "T2 (Tele2)", "en": "T2 (Tele2)" }, "strategies": [] },
+    { "id": "yota", "name": { "ru": "Yota", "en": "Yota" }, "strategies": [] },
+    { "id": "domru", "name": { "ru": "Дом.ру", "en": "Dom.ru" }, "strategies": [] },
+    { "id": "ttk", "name": { "ru": "ТТК", "en": "TTK" }, "strategies": [] },
+    { "id": "ufanet", "name": { "ru": "Уфанет", "en": "Ufanet" }, "strategies": [] },
+    { "id": "tattelecom", "name": { "ru": "Таттелеком (Летай)", "en": "Tattelecom (Letai)" }, "strategies": [] }
+  ]
+}

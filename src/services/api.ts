@@ -2,6 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   ActivationResult,
+  ProviderHints,
   CatalogView,
   PackConfirm,
   PackDiff,
@@ -95,6 +96,7 @@ export const api = {
 
   getSettings: () => invoke<Settings>("get_settings"),
   saveSettings: (settings: Settings) => invoke<Settings>("save_settings", { settings }),
+  providerHints: () => invoke<ProviderHints>("provider_hints"),
 
   flowsealCheck: () => invoke<UpdateInfo>("flowseal_check_update"),
   flowsealInstall: (version: string) => invoke<FlowsealAction>("flowseal_install", { version }),

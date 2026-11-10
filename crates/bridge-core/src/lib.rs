@@ -11,6 +11,7 @@ pub mod auto;
 pub mod batparse;
 pub mod catalog;
 pub mod diff;
+pub mod hints;
 pub mod ipc;
 pub mod ipset;
 pub mod lists;

@@ -282,6 +282,7 @@ pub fn run() {
             commands::checks::export_report,
             commands::settings::get_settings,
             commands::settings::save_settings,
+            commands::settings::provider_hints,
             commands::updates::flowseal_check_update,
             commands::updates::flowseal_install,
             commands::updates::flowseal_set_active,
