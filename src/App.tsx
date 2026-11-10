@@ -20,6 +20,12 @@ export default function App() {
   const reduce = useReducedMotion();
   const theme = overview?.settings.theme ?? "system";
 
+  // The document language follows the interface language (screen readers, hyphenation, spell check).
+  const lang = useApp((st) => st.lang);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   // Theme: explicit choice or follow Windows.
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: light)");

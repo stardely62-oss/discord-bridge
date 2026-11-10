@@ -80,7 +80,7 @@ test.describe("Settings", () => {
   test("a switch saves the changed value at once", async ({ app }) => {
     await app.open();
     await app.go("Настройки");
-    const sw = app.main.getByRole("switch", { name: "auto discord" });
+    const sw = app.main.getByRole("switch", { name: "Затем запускать Discord" });
     await expect(sw).not.toBeChecked();
     await app.calls();
     await sw.click();

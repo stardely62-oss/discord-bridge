@@ -21,7 +21,16 @@ test("voice is never shown as working without a confirmation", async ({ app }) =
   await expect(app.main).toContainText("Голос не проверен");
   await app.open("s=stopped");
   await expect(app.main).toContainText("Голос не проверен");
-  await expect(app.main.getByRole("button", { name: "работает" })).toHaveCount(0);
+  await expect(app.main.getByRole("group", { name: "Голосовые каналы Discord работают?" })).toHaveCount(0);
+});
+
+test("the voice question is asked while the bypass runs, and the answer is saved for the running strategy", async ({ app }) => {
+  await app.open("s=running");
+  const ask = app.main.getByRole("group", { name: "Голосовые каналы Discord работают?" });
+  await expect(ask).toBeVisible();
+  await app.calls();
+  await ask.getByRole("button", { name: "Да" }).click();
+  expect((await app.sent("confirm_voice")).args).toEqual({ strategyId: "flowseal-general-alt2", works: true });
 });
 
 test.describe("Telegram WS Proxy card", () => {

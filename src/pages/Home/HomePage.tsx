@@ -240,13 +240,15 @@ function DiscordHero() {
             <Mic className={`h-3.5 w-3.5 ${tone[voice.level]}`} />
             <span className={tone[voice.level]}>{voice.text}</span>
             {running && overview.voice !== "noUdpRules" && overview.voice !== "userConfirmed" && (
-              <span className="flex gap-1">
-                <button className="rounded px-1.5 py-0.5 text-ink-muted hover:bg-surface-3 hover:text-ok" onClick={() => confirmVoice(true)}>
-                  {tr("работает", "works")}
-                </button>
-                <button className="rounded px-1.5 py-0.5 text-ink-muted hover:bg-surface-3 hover:text-bad" onClick={() => confirmVoice(false)}>
-                  {tr("нет", "no")}
-                </button>
+              // Voice cannot be checked automatically: the answer decides what Bridge treats as a working configuration.
+              <span className="flex items-center gap-1.5 rounded-md border border-line-strong bg-surface-2 py-1 pl-2.5 pr-1" role="group" aria-label={tr("Голосовые каналы Discord работают?", "Do Discord voice channels work?")}>
+                <span className="text-ink">{tr("Голос работает?", "Does voice work?")}</span>
+                <Button size="sm" variant="secondary" onClick={() => confirmVoice(true)}>
+                  {tr("Да", "Yes")}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => confirmVoice(false)}>
+                  {tr("Нет", "No")}
+                </Button>
               </span>
             )}
           </div>

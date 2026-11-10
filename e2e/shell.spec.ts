@@ -26,12 +26,19 @@ test("the sidebar shows the real engine state", async ({ app }) => {
   await expect(app.nav).not.toContainText("general (ALT2)");
 });
 
-test("English interface", async ({ app }) => {
+test("English interface", async ({ app, page }) => {
   await app.open("s=running&l=en");
   for (const name of ["Home", "Strategies", "Apps", "Diagnostics", "Settings", "About"]) {
     await expect(app.nav.getByRole("button", { name, exact: true })).toBeVisible();
   }
   await expect(app.nav).toContainText("Bypass on");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
+  // Controls are named in the interface language, not by internal identifiers.
+  await app.go("Settings");
+  await expect(app.main.getByRole("switch", { name: "Start minimized" })).toBeVisible();
+  await expect(app.main.getByRole("combobox", { name: "Language" })).toHaveValue("en");
+  await app.open("s=running");
+  await expect(page.locator("html")).toHaveAttribute("lang", "ru");
 });
 
 test("light and dark themes are applied to the document", async ({ app, page }) => {
