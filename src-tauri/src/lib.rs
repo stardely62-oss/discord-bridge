@@ -278,6 +278,7 @@ pub fn run() {
             commands::checks::confirm_voice,
             commands::checks::diagnostics_history,
             commands::checks::set_tcp_timestamps,
+            commands::checks::tcp_timestamps_needed,
             commands::checks::get_logs,
             commands::checks::clear_logs,
             commands::checks::export_report,

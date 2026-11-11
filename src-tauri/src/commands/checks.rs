@@ -2,6 +2,38 @@
 
 use super::*;
 
+/// The strategy desyncs with `fooling=ts`, which works only with Windows TCP
+/// timestamps on (Flowseal's own scripts turn them on for that reason).
+fn uses_fooling_ts(s: &bridge_core::strategy::Strategy) -> bool {
+    s.rules.iter().flat_map(|r| &r.args).any(|a| {
+        a.opt == "--dpi-desync-fooling" && a.text_value().is_some_and(|v| v.contains("ts"))
+    })
+}
+
+/// True only when the active strategy needs TCP timestamps and the helper
+/// reports them off. Read-only: the change itself needs the user's consent
+/// (`set_tcp_timestamps`). Unknown state or no helper answer → false, so the
+/// UI never asks on a guess.
+#[tauri::command]
+pub async fn tcp_timestamps_needed(state: State<'_, AppState>) -> R<bool> {
+    let Some(id) = state.settings().active_strategy_id else {
+        return Ok(false);
+    };
+    let needs = state
+        .strategies
+        .lock()
+        .expect("lock")
+        .get(&id)
+        .is_some_and(uses_fooling_ts);
+    if !needs {
+        return Ok(false);
+    }
+    Ok(matches!(
+        state.helper.request(Request::Diagnose).await,
+        Ok(Response::Diagnose { diagnostics }) if diagnostics.tcp_timestamps == Some(false)
+    ))
+}
+
 #[tauri::command]
 pub async fn run_diagnostics(state: State<'_, AppState>) -> R<DiagnosticsReport> {
     let settings = state.settings();
@@ -48,11 +80,7 @@ pub async fn run_diagnostics(state: State<'_, AppState>) -> R<DiagnosticsReport>
     let active = active_id
         .as_ref()
         .and_then(|id| state.strategies.lock().expect("lock").get(id).cloned());
-    let needs_ts = active.as_ref().is_some_and(|s| {
-        s.rules.iter().flat_map(|r| &r.args).any(|a| {
-            a.opt == "--dpi-desync-fooling" && a.text_value().is_some_and(|v| v.contains("ts"))
-        })
-    });
+    let needs_ts = active.as_ref().is_some_and(uses_fooling_ts);
     if helper_err.is_none() {
         if let Ok(Response::Diagnose { diagnostics: hd }) =
             state.helper.request(Request::Diagnose).await

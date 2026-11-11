@@ -1,11 +1,61 @@
 import { useCallback } from "react";
+import { confirmDialog } from "../components/ui/confirm";
 import { api, errorText } from "../services/api";
 import { useApp, useTr } from "../stores/app";
+
+/** «Не включать» in the TCP timestamps question: remembered on this computer. */
+const TS_DECLINED = "bridge.tcpTimestamps.declined";
+const tsDeclined = () => {
+  try {
+    return localStorage.getItem(TS_DECLINED) === "1";
+  } catch {
+    return false;
+  }
+};
+export const declineTs = () => {
+  try {
+    localStorage.setItem(TS_DECLINED, "1");
+  } catch {
+    // Not remembered: the question comes back next time, nothing else breaks.
+  }
+};
+
+/**
+ * After a successful start: the strategy uses fooling=ts but Windows TCP
+ * timestamps are off (e.g. «Настрою сам» on the first run skipped the
+ * question). Ask once; a «no» is remembered, Diagnostics still offers it.
+ */
+function useTimestampsReminder() {
+  const { toast } = useApp();
+  const tr = useTr();
+  return useCallback(async () => {
+    if (tsDeclined()) return;
+    const needed = await api.tcpTimestampsNeeded().catch(() => false);
+    if (!needed) return;
+    const ok = await confirmDialog({
+      title: tr("Включить TCP timestamps?", "Enable TCP timestamps?"),
+      body: tr(
+        "Эта стратегия использует fooling=ts, а TCP timestamps в Windows выключены — без них она может работать хуже. Это глобальная настройка TCP (оригинальный Flowseal включает её всегда). Исходное значение запоминается, вернуть его можно в «Настройки → Обход». Если откажетесь, больше не спросим: включить можно и в «Диагностике».",
+        "This strategy uses fooling=ts, but Windows TCP timestamps are off — it may work worse without them. A global TCP setting (original Flowseal always enables it). The original value is recorded; restore it in Settings → Bypass. If you decline, we won't ask again: you can still enable it in Diagnostics.",
+      ),
+      code: "netsh interface tcp set global timestamps=enabled",
+      confirmLabel: tr("Включить", "Enable"),
+      cancelLabel: tr("Не включать", "Don't enable"),
+    });
+    if (!ok) return declineTs();
+    try {
+      toast("ok", (await api.setTcpTimestamps(true, true)).message);
+    } catch (e) {
+      toast("error", errorText(e));
+    }
+  }, [toast, tr]);
+}
 
 /** Activates a strategy and reports the real outcome (process + HTTPS probe). */
 export function useActivate() {
   const { setBusy, toast, refresh, setActivation } = useApp();
   const tr = useTr();
+  const remindTimestamps = useTimestampsReminder();
   return useCallback(
     async (id: string | null, ignoreConflicts = false) => {
       setBusy(true);
@@ -24,6 +74,7 @@ export function useActivate() {
             );
           }
           setActivation(null);
+          void remindTimestamps();
         } else {
           setActivation(r);
         }
@@ -36,7 +87,7 @@ export function useActivate() {
         setBusy(false);
       }
     },
-    [setBusy, toast, refresh, setActivation, tr],
+    [setBusy, toast, refresh, setActivation, tr, remindTimestamps],
   );
 }
 
