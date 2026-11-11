@@ -15,7 +15,7 @@ Bridge управляет [Flowseal Zapret](https://github.com/Flowseal/zapret-d
 [![Лицензия MIT](https://img.shields.io/github/license/stardely62-oss/discord-bridge?label=%D0%BB%D0%B8%D1%86%D0%B5%D0%BD%D0%B7%D0%B8%D1%8F)](LICENSE)
 [![CI](https://github.com/stardely62-oss/discord-bridge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/stardely62-oss/discord-bridge/actions/workflows/ci.yml)
 
-[**Скачать**](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.3) ·
+[**Скачать**](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.4) ·
 [Установка](#установка) ·
 [Как это работает](#как-это-работает) ·
 [Документация](#документация) ·
@@ -46,9 +46,9 @@ Bridge сам запускает и останавливает их, показ�
 ## Быстрый старт
 
 1. **Скачайте** установщик и файл контрольных сумм последней версии,
-   [Bridge v0.1.3](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.3):
-   - [`Bridge_0.1.3_x64-setup.exe`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.3/Bridge_0.1.3_x64-setup.exe)
-   - [`SHA256SUMS.txt`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.3/SHA256SUMS.txt)
+   [Bridge v0.1.4](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.4):
+   - [`Bridge_0.1.4_x64-setup.exe`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.4/Bridge_0.1.4_x64-setup.exe)
+   - [`SHA256SUMS.txt`](https://github.com/stardely62-oss/discord-bridge/releases/download/v0.1.4/SHA256SUMS.txt)
 2. **Сверьте SHA-256** (как именно — в разделе [«Установка»](#установка)).
 3. **Установите**: запустите установщик и подтвердите запрос прав администратора.
 4. **Запустите Bridge** из меню «Пуск». Для Discord нажмите «Запустить Discord», для
@@ -148,7 +148,7 @@ flowchart TB
 
 1. Скачайте `Bridge_<версия>_x64-setup.exe` и `SHA256SUMS.txt` из одного и того же
    релиза приложения: последний сейчас —
-   [v0.1.3](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.3).
+   [v0.1.4](https://github.com/stardely62-oss/discord-bridge/releases/tag/v0.1.4).
    Берите файлы только из релиза с тегом `v…`: в служебных релизах `flowseal-…` и
    `sources-…` установщика нет.
 2. Проверьте SHA-256 установщика. В PowerShell, в папке со скачанными файлами:

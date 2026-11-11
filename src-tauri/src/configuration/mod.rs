@@ -53,6 +53,10 @@ pub struct Settings {
     pub last_working_strategy_id: Option<String>,
     pub bypass_enabled: bool,
     pub game_filter: GameFilter,
+    /// Fresh installs start with «Flowseal + selected» (see `Default`). A
+    /// settings file without this field keeps the mode it always had,
+    /// `none` (the field-level default wins over the struct default).
+    #[serde(default)]
     pub ipset_mode: IpsetMode,
     /// The user's own entries only; catalog packs live in `installed_packs`.
     pub user_lists: UserLists,
@@ -113,7 +117,9 @@ impl Default for Settings {
             last_working_strategy_id: None,
             bypass_enabled: false,
             game_filter: GameFilter::default(),
-            ipset_mode: IpsetMode::None,
+            // Catalog packs with IPs work right after installation; plus
+            // Flowseal's full IP list (its own default keeps it off).
+            ipset_mode: IpsetMode::FlowsealPlusSelected,
             user_lists: UserLists::default(),
             installed_packs: Vec::new(),
             keep_logs: true,
@@ -255,6 +261,30 @@ mod tests {
         let m2 = ConfigurationManager::load(d.path().to_path_buf());
         assert!(m2.recovered);
         assert!(m2.settings.auto_launch_discord);
+    }
+
+    #[test]
+    fn only_fresh_installs_get_the_new_ip_mode() {
+        use bridge_core::ipset::IpsetMode;
+        // No settings file: the new default.
+        let d = tempfile::tempdir().unwrap();
+        let m = ConfigurationManager::load(d.path().to_path_buf());
+        assert_eq!(m.settings.ipset_mode, IpsetMode::FlowsealPlusSelected);
+        // An existing file keeps its mode, and one written before the field
+        // existed keeps "none", the mode it always had.
+        for (json, want) in [
+            (
+                r#"{"schemaVersion":2,"ipsetMode":"selected"}"#,
+                IpsetMode::Selected,
+            ),
+            (r#"{"schemaVersion":2,"ipsetMode":"none"}"#, IpsetMode::None),
+            (r#"{"schemaVersion":2,"language":"en"}"#, IpsetMode::None),
+        ] {
+            let d = tempfile::tempdir().unwrap();
+            std::fs::write(d.path().join("settings.json"), json).unwrap();
+            let m = ConfigurationManager::load(d.path().to_path_buf());
+            assert_eq!(m.settings.ipset_mode, want, "{json}");
+        }
     }
 
     #[test]

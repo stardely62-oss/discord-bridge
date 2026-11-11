@@ -53,6 +53,7 @@ pub(crate) fn pack(id: &str, version: u32, domains: &[&str], ips: &[&str]) -> Pa
         notes: None,
         partial_coverage: false,
         requires: Requirements::default(),
+        ports: None,
         flowseal_list: None,
         min_app_version: None,
     }
@@ -623,4 +624,82 @@ fn alpha8_snapshots_can_be_updated_with_a_confirmation() {
         up[0].previous.as_ref().unwrap().version.as_deref(),
         Some("2026-11-05")
     );
+}
+
+#[test]
+fn ports_are_validated_and_older_hashes_do_not_change() {
+    let a = pack("photon", 1, &["photonengine.io"], &["216.120.180.0/23"]);
+    // A pack without ports serializes exactly as before the field existed.
+    let v = serde_json::to_value(&a).unwrap();
+    assert!(v.get("ports").is_none());
+    let mut ok = a.clone();
+    ok.ports = Some(PackPorts {
+        tcp: Some("4530,4531,4533".into()),
+        udp: Some("5055-5058".into()),
+    });
+    ok.validate().unwrap();
+    let needs = ok.ports.as_ref().unwrap().needs();
+    assert_eq!(
+        needs
+            .iter()
+            .map(|n| (n.protocol, n.text, n.ranges.clone()))
+            .collect::<Vec<_>>(),
+        vec![
+            (
+                "tcp",
+                "4530,4531,4533",
+                vec![(4530, 4530), (4531, 4531), (4533, 4533)]
+            ),
+            ("udp", "5055-5058", vec![(5055, 5058)])
+        ]
+    );
+    assert_ne!(pack_sha256(&ok), pack_sha256(&a));
+    for bad in [
+        PackPorts::default(),
+        PackPorts {
+            udp: Some("".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            udp: Some("0-10".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            udp: Some("5058-5055".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            udp: Some("70000".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            udp: Some("%GameFilterUDP%".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            udp: Some("5055, 5056".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            tcp: Some("--wf-raw=x".into()),
+            ..Default::default()
+        },
+        PackPorts {
+            udp: Some(
+                (1..=33)
+                    .map(|p| p.to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            ..Default::default()
+        },
+    ] {
+        let mut p = a.clone();
+        p.ports = Some(bad.clone());
+        assert!(p.validate().is_err(), "{bad:?}");
+    }
+    // Unknown keys inside `ports` are an error (like `requires`).
+    let mut v = serde_json::to_value(&ok).unwrap();
+    v["ports"]["sctp"] = serde_json::json!("1");
+    assert!(serde_json::from_value::<Pack>(v).is_err());
 }

@@ -2,12 +2,12 @@
 import { ArrowUpCircle, CheckCircle2, CircleDashed, History, Info, Minus, Plus, RefreshCw, RotateCw, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { review } from "../../catalog/confirm";
-import { CATEGORY_EN, CATEGORY_RU, loc, packIpState, PackIpState, stateLabel } from "../../catalog/apps";
+import { CATEGORY_EN, CATEGORY_RU, declaredPorts, GAME_FILTER_MODE_EN, GAME_FILTER_MODE_RU, loc, packIpState, PackIpState, portsText, stateLabel } from "../../catalog/apps";
 import { Button, Card, Modal } from "../../components/ui";
 import { confirmDialog } from "../../components/ui/confirm";
 import { useActivate } from "../../hooks/useActivate";
 import { api, errorText } from "../../services/api";
-import type { CatalogPack, CatalogView, IpSetStatus, IpsetMode, PackConfirm, PackDiff, PackState, PackView } from "../../services/types";
+import type { CatalogPack, CatalogView, GameFilterMode, IpSetStatus, IpsetMode, PackConfirm, PackDiff, PackPortStatus, PackState, PackView } from "../../services/types";
 import { useApp, useCount, useTr } from "../../stores/app";
 
 /** Real service icon from the verified catalog, or a neutral initial. */
@@ -82,7 +82,7 @@ export const MODE_RU: Record<IpsetMode, string> = { none: "Без IP", selected:
 export const MODE_EN: Record<IpsetMode, string> = { none: "No IPs", selected: "Selected IPs", flowseal: "Full Flowseal list", flowsealPlusSelected: "Flowseal + selected", any: "All addresses" };
 
 /** One honest line about where IPs stand; "applied" only when the backend confirms it. */
-export function IpStateNote({ state, ip, subject }: { state: PackIpState | null; ip: IpSetStatus | undefined; subject: "pack" | "list" }) {
+export function IpStateNote({ state, ip, subject, muted }: { state: PackIpState | null; ip: IpSetStatus | undefined; subject: "pack" | "list"; muted?: boolean }) {
   const tr = useTr();
   const { lang, setPage, strategies } = useApp();
   const activate = useActivate();
@@ -135,8 +135,92 @@ export function IpStateNote({ state, ip, subject }: { state: PackIpState | null;
         ),
       );
     case "applied":
-      return box("ok", tr(`${what} используются работающим обходом (правил с IP-фильтром в стратегии: ${ip.strategy.ipsetRules}).`, `${what} are used by the running bypass (strategy rules with an IP filter: ${ip.strategy.ipsetRules}).`));
+      // Muted when the pack's own ports are not handled: IPs alone do not make it work.
+      return box(muted ? "info" : "ok", tr(`${what} используются работающим обходом (правил с IP-фильтром в стратегии: ${ip.strategy.ipsetRules}).`, `${what} are used by the running bypass (strategy rules with an IP filter: ${ip.strategy.ipsetRules}).`));
   }
+}
+
+/** Port status of a catalog pack from the overview, if Bridge can say anything. */
+export function usePortStatus(id: string): PackPortStatus | undefined {
+  return useApp((s) => s.overview?.packPorts?.find((x) => x.id === id));
+}
+
+/**
+ * Whether the active strategy handles the pack's own ports (game UDP, …).
+ * Configuration only: it never says that the game connects.
+ */
+export function PortNote({ pack, installed, onlyProblems }: { pack: CatalogPack; installed: boolean; onlyProblems?: boolean }) {
+  const tr = useTr();
+  const { lang, overview, strategies, setPage, openSettings, refresh, toast } = useApp();
+  const status = usePortStatus(pack.id);
+  const [busy, setBusy] = useState(false);
+  if (!status || !overview) return null;
+  const c = status.coverage;
+  const strategyName = strategies.find((s) => s.id === overview.ipSets.strategyId)?.name ?? overview.ipSets.strategyId ?? "—";
+  const modeName = (m: GameFilterMode) => (lang === "en" ? GAME_FILTER_MODE_EN[m] : GAME_FILTER_MODE_RU[m]);
+  const tone = installed ? "border-warn/30 text-warn" : "border-line text-ink-muted";
+  const link = (text: string, go: () => void) => (
+    <button className="text-left underline underline-offset-2 hover:text-ink" onClick={go}>
+      {text}
+    </button>
+  );
+  const enable = async (mode: GameFilterMode) => {
+    setBusy(true);
+    try {
+      const s = await api.getSettings();
+      await api.saveSettings({ ...s, gameFilter: { ...s.gameFilter, mode } });
+      await refresh();
+      toast("ok", tr(`Игровой фильтр включён (${modeName(mode)}).`, `The game filter is on (${modeName(mode)}).`));
+    } catch (e) {
+      toast("error", errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (c.state === "covered") {
+    if (!installed || onlyProblems) return null;
+    const ports = portsText(declaredPorts(status.ports));
+    return (
+      <p className="mt-2 flex gap-1.5 rounded-md border border-line px-2 py-1.5 text-[11px] leading-snug text-ink-muted" data-testid="port-note">
+        <CheckCircle2 className="mt-px h-3.5 w-3.5 shrink-0 text-ok" />
+        <span>
+          {tr(`Порты ${ports} обрабатываются стратегией «${strategyName}» (правило № ${c.rules.join(", ")}). Работает ли сама игра, Bridge не проверяет.`, `Ports ${ports} are handled by strategy “${strategyName}” (rule ${c.rules.join(", ")}). Bridge does not check whether the game itself works.`)}
+        </span>
+      </p>
+    );
+  }
+  return (
+    <div className={`mt-2 flex gap-1.5 rounded-md border px-2 py-1.5 text-[11px] leading-snug ${tone}`} data-testid="port-note">
+      <TriangleAlert className="mt-px h-3.5 w-3.5 shrink-0" />
+      <div className="space-y-1">
+        {c.state === "needsGameFilter" ? (
+          <>
+            <p>
+              {c.missing.length
+                ? tr(`Порты ${portsText(c.missing)} сейчас не обрабатываются: нужен игровой фильтр.`, `Ports ${portsText(c.missing)} are not handled now: the game filter is needed.`)
+                : tr("Этому набору нужен игровой фильтр, а он выключен.", "This set needs the game filter, and it is off.")}{" "}
+              {tr("Он обрабатывает эти порты и у других программ.", "It handles these ports for other programs too.")}
+            </p>
+            <Button size="sm" variant="secondary" loading={busy} onClick={() => enable(c.mode)}>
+              {tr(`Включить игровой фильтр (${modeName(c.mode)})`, `Turn on the game filter (${modeName(c.mode)})`)}
+            </Button>
+          </>
+        ) : (
+          <p>
+            {tr(`Порты ${portsText(c.missing)} не обрабатываются ни одним правилом стратегии «${strategyName}» для IP-адресов. `, `Ports ${portsText(c.missing)} are not handled by any rule of strategy “${strategyName}” for IP addresses. `)}
+            {overview.settings.gameFilter.mode !== "disabled" && (
+              <>
+                {tr("Проверьте диапазон игрового фильтра в ", "Check the game filter range in ")}
+                {link(tr("Настройки → Обход", "Settings → Bypass"), () => openSettings("bypass"))}
+                {tr(" или ", " or ")}
+              </>
+            )}
+            {link(tr("выберите другую стратегию", "choose another strategy"), () => setPage("strategies"))}.
+          </p>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /** Shared actions for catalog packs (all go through Rust). */
@@ -312,6 +396,20 @@ export function StatusLadder({ view }: { view: PackView }) {
     if (overview?.pendingApply) rows.push({ ok: false, text: tr("Изменения сохранены, но ещё не применены к работающему обходу", "Changes are saved but not applied to the running bypass") });
     else if (ip?.engineUpToDate) rows.push({ ok: true, text: tr("Домены набора записаны в работающую конфигурацию обхода", "The set's domains are in the running bypass configuration") });
     else rows.push({ ok: null, text: tr("Обход сейчас не запущен с текущей конфигурацией", "The bypass is not running the current configuration now") });
+    const ports = overview?.packPorts?.find((x) => x.id === view.pack.id);
+    if (ports) {
+      const c = ports.coverage;
+      const covered = c.state === "covered";
+      const list = c.state === "covered" ? declaredPorts(ports.ports) : c.missing;
+      rows.push({
+        ok: covered,
+        text: covered
+          ? tr(`Порты ${portsText(list)} обрабатываются стратегией`, `Ports ${portsText(list)} are handled by the strategy`)
+          : list.length
+            ? tr(`Порты ${portsText(list)} стратегией не обрабатываются`, `Ports ${portsText(list)} are not handled by the strategy`)
+            : tr("Нужен игровой фильтр — он выключен", "The game filter is needed — it is off"),
+      });
+    }
     if (view.pack.ips.length && ip) {
       const st = packIpState(view.pack, view.state, ip);
       rows.push({ ok: st === "applied", text: st === "applied" ? tr("IP набора используются работающим обходом", "The set's IPs are used by the running bypass") : tr("IP набора сейчас не используются обходом — см. подсказку на карточке", "The set's IPs are not used by the bypass now — see the card note") });
@@ -386,6 +484,7 @@ export function PackDetails({ view, onClose, onUpdate }: { view: PackView | null
             </div>
           </div>
           <CoverageNote pack={p} />
+          <PortNote pack={p} installed={!!shown.installed} />
           <div>
             <div className="label mb-1">{tr("Домены", "Domains")} · {p.domains.length}</div>
             <div className="code-box selectable max-h-36 overflow-auto whitespace-pre px-3 py-2">{p.domains.length ? p.domains.join("\n") : "—"}</div>
@@ -421,6 +520,7 @@ export function PackDetails({ view, onClose, onUpdate }: { view: PackView | null
 
 export function PackCard({ view, onOpen, onUpdate }: { view: PackView; onOpen: () => void; onUpdate: () => void }) {
   const ip = useApp((s) => s.overview?.ipSets);
+  const ports = usePortStatus(view.pack.id);
   const tr = useTr();
   const count = useCount();
   const { lang } = useApp();
@@ -440,7 +540,8 @@ export function PackCard({ view, onOpen, onUpdate }: { view: PackView; onOpen: (
       </button>
       <p className="mt-2.5 text-[13px] leading-relaxed text-ink-muted">{loc(p.description, lang)}</p>
       {p.partialCoverage && <CoverageNote pack={p} />}
-      <IpStateNote state={ip ? packIpState(p, view.state, ip) : null} ip={ip} subject="pack" />
+      <IpStateNote state={ip ? packIpState(p, view.state, ip) : null} ip={ip} subject="pack" muted={!!ports && ports.coverage.state !== "covered"} />
+      <PortNote pack={p} installed={!!view.installed} />
       <div className="mt-auto flex items-center justify-between gap-2 pt-3">
         <div className="min-w-0">
           <StateChip state={view.state} />

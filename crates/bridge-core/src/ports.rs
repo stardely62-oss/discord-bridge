@@ -88,6 +88,18 @@ impl PortSpec {
         Ok(PortSpec(items))
     }
 
+    /// Concrete port ranges, or `None` while game-filter variables remain.
+    pub fn ranges(&self) -> Option<Vec<(u16, u16)>> {
+        self.0
+            .iter()
+            .map(|i| match i {
+                PortItem::Single(p) => Some((*p, *p)),
+                PortItem::Range(a, b) => Some((*a, *b)),
+                PortItem::Var(_) => None,
+            })
+            .collect()
+    }
+
     pub fn vars(&self) -> impl Iterator<Item = PortVar> + '_ {
         self.0.iter().filter_map(|i| match i {
             PortItem::Var(v) => Some(*v),
@@ -124,6 +136,21 @@ impl fmt::Display for PortSpec {
             .join(",");
         f.write_str(&s)
     }
+}
+
+/// Whether every port of `need` lies in `have` (ranges may overlap or touch).
+pub fn covers_all(have: &[(u16, u16)], need: &[(u16, u16)]) -> bool {
+    let mut merged: Vec<(u32, u32)> = have.iter().map(|&(a, b)| (a as u32, b as u32)).collect();
+    merged.sort_unstable();
+    let mut out: Vec<(u32, u32)> = Vec::with_capacity(merged.len());
+    for (a, b) in merged {
+        match out.last_mut() {
+            Some(last) if a <= last.1 + 1 => last.1 = last.1.max(b),
+            _ => out.push((a, b)),
+        }
+    }
+    need.iter()
+        .all(|&(a, b)| out.iter().any(|&(x, y)| x <= a as u32 && b as u32 <= y))
 }
 
 /// Game filter mode, mirroring Flowseal's `utils\game_filter.enabled`.
@@ -245,5 +272,22 @@ mod tests {
         assert!(gf.validate().is_err());
         gf.tcp_range = "0-10".into();
         assert!(gf.validate().is_err());
+    }
+
+    #[test]
+    fn ranges_and_coverage() {
+        let r = |s: &str| PortSpec::parse(s).unwrap().ranges().unwrap();
+        assert_eq!(r("443,50000-50100"), vec![(443, 443), (50000, 50100)]);
+        assert!(PortSpec::parse("443,%GameFilterUDP%")
+            .unwrap()
+            .ranges()
+            .is_none());
+        // Touching and overlapping ranges merge.
+        assert!(covers_all(&r("1024-5000,5001-65535"), &r("5055-5058")));
+        assert!(covers_all(&r("5055,5056-5057,5058"), &r("5055-5058")));
+        assert!(!covers_all(&r("5055-5057"), &r("5055-5058")));
+        assert!(!covers_all(&r("12"), &r("5055-5058")));
+        assert!(covers_all(&r("65535"), &r("65535")));
+        assert!(covers_all(&r("1-65535"), &r("443,5055-5058")));
     }
 }

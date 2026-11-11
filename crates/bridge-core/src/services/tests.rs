@@ -632,3 +632,126 @@ fn rules_of_every_list_that_contains_a_card_domain_are_counted() {
         .unwrap();
     assert_eq!(general.covers, 1, "dns.google");
 }
+
+// ---------------------------------------------------------------- ports
+
+fn photon_ports() -> crate::packs::PackPorts {
+    crate::packs::PackPorts {
+        tcp: None,
+        udp: Some("5055-5058".into()),
+    }
+}
+
+fn gf(mode: crate::ports::GameFilterMode) -> GameFilter {
+    GameFilter {
+        mode,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn game_ports_need_the_game_filter_in_every_flowseal_strategy() {
+    use crate::ports::GameFilterMode as M;
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/flowseal-1.10.4");
+    let mut n = 0;
+    for e in std::fs::read_dir(dir).unwrap() {
+        let name = e.unwrap().file_name().to_string_lossy().into_owned();
+        if !name.ends_with(".bat") {
+            continue;
+        }
+        n += 1;
+        let st = strategy(&name);
+        // Off: nothing handles UDP 5055-5058; the UDP game filter would.
+        assert_eq!(
+            port_coverage(&st, &gf(M::Disabled), &photon_ports()),
+            PortCoverage::NeedsGameFilter {
+                mode: M::Udp,
+                missing: vec![NeededPorts {
+                    protocol: "udp".into(),
+                    ports: "5055-5058".into()
+                }]
+            },
+            "{name}"
+        );
+        // On (default range 1024-65535): exactly the game-filter UDP rule.
+        for m in [M::Udp, M::All] {
+            match port_coverage(&st, &gf(m), &photon_ports()) {
+                PortCoverage::Covered { rules } => {
+                    assert_eq!(rules.len(), 1, "{name}");
+                    let r = &strategy_facts(&st, &gf(m).ports()).rules[rules[0] - 1];
+                    assert!(r.ipsets.iter().any(|i| i == IPSET_ALL), "{name}");
+                }
+                other => panic!("{name}: {other:?}"),
+            }
+        }
+        // TCP only on: UDP still needs it, and the suggestion keeps TCP.
+        assert!(matches!(
+            port_coverage(&st, &gf(M::Tcp), &photon_ports()),
+            PortCoverage::NeedsGameFilter { mode: M::All, .. }
+        ));
+    }
+    assert_eq!(n, 22);
+}
+
+#[test]
+fn narrowed_range_or_a_strategy_without_such_rules_is_no_rule() {
+    use crate::ports::GameFilterMode as M;
+    let st = strategy("general.bat");
+    let narrow = GameFilter {
+        mode: M::All,
+        tcp_range: "1024-65535".into(),
+        udp_range: "27000-28000".into(),
+    };
+    assert_eq!(
+        port_coverage(&st, &narrow, &photon_ports()),
+        PortCoverage::NoRule {
+            missing: vec![NeededPorts {
+                protocol: "udp".into(),
+                ports: "5055-5058".into()
+            }]
+        }
+    );
+    // Ports already handled for IP addresses without the game filter
+    // (TCP 443 of the IP-set rule) need nothing.
+    let https = crate::packs::PackPorts {
+        tcp: Some("443".into()),
+        udp: None,
+    };
+    assert!(matches!(
+        port_coverage(&st, &gf(M::Disabled), &https),
+        PortCoverage::Covered { .. }
+    ));
+    // A user strategy without IP-set rules: nothing to suggest.
+    let mut own = st.clone();
+    for r in &mut own.rules {
+        r.args.retain(|a| a.opt != "--ipset");
+        if !r.args.iter().any(|a| a.opt.starts_with("--hostlist")) {
+            r.enabled = false;
+        }
+    }
+    assert!(matches!(
+        port_coverage(&own, &gf(M::Disabled), &photon_ports()),
+        PortCoverage::NoRule { .. }
+    ));
+}
+
+#[test]
+fn older_packs_without_ports_get_the_game_filter_hint_only() {
+    use crate::ports::GameFilterMode as M;
+    let st = strategy("general.bat");
+    let mut p =
+        crate::packs::tests_support::pack("photon", 1, &["photonengine.io"], &["216.120.180.0/23"]);
+    assert_eq!(pack_port_coverage(&p, Some(&st), &gf(M::Disabled)), None);
+    p.requires.game_filter = true;
+    assert!(matches!(
+        pack_port_coverage(&p, Some(&st), &gf(M::Disabled)),
+        Some(PortCoverage::NeedsGameFilter { mode: M::All, ref missing }) if missing.is_empty()
+    ));
+    assert_eq!(pack_port_coverage(&p, Some(&st), &gf(M::Udp)), None);
+    p.ports = Some(photon_ports());
+    assert!(matches!(
+        pack_port_coverage(&p, Some(&st), &gf(M::Udp)),
+        Some(PortCoverage::Covered { .. })
+    ));
+    assert_eq!(pack_port_coverage(&p, None, &gf(M::Udp)), None);
+}

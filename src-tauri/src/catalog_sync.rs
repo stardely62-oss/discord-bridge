@@ -327,6 +327,18 @@ impl CatalogRuntime {
             .cloned()
     }
 
+    /// Usable packs whose own ports can be checked against the strategy:
+    /// with `ports`, or with `requires.gameFilter` (older catalog data).
+    pub fn port_packs(&self) -> Vec<Pack> {
+        self.loaded()
+            .data
+            .usable_packs(&self.app_version)
+            .into_iter()
+            .filter(|p| p.ports.is_some() || p.requires.game_filter)
+            .cloned()
+            .collect()
+    }
+
     pub fn view(&self, installed: &[InstalledPack]) -> CatalogView {
         let l = self.loaded();
         let packs: Vec<PackView> = l
