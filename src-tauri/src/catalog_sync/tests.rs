@@ -330,7 +330,7 @@ fn builtin_catalog_loads() {
     let rt = CatalogRuntime::production(dir.path().join("c"));
     let v = rt.view(&[]);
     assert_eq!(v.origin, CatalogOrigin::Builtin);
-    assert_eq!(v.packs.len(), 4);
+    assert_eq!(v.packs.len(), 5);
     assert_eq!(v.icons.len(), 4);
 }
 
