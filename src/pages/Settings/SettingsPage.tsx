@@ -412,10 +412,10 @@ export default function SettingsPage() {
               }
               description={
                 {
-                  none: tr("Только сайты из списков, IP-правила стратегий ничего не захватывают (по умолчанию, как во Flowseal).", "Only listed sites; strategy IP rules match nothing (default, as in Flowseal)."),
+                  none: tr("Только сайты из списков, IP-правила стратегий ничего не захватывают (так по умолчанию во Flowseal).", "Only listed sites; strategy IP rules match nothing (Flowseal's default)."),
                   selected: tr("Только ваши «IP через обход» и IP установленных наборов каталога.", "Only your “IPs via bypass” and the IPs of installed catalog sets."),
                   flowseal: tr("Полный список IP из релиза Flowseal. Ваши IP и IP наборов не используются.", "The full IP list from the Flowseal release. Your IPs and set IPs are not used."),
-                  flowsealPlusSelected: tr("Полный список Flowseal плюс ваши IP и IP наборов.", "The full Flowseal list plus your IPs and set IPs."),
+                  flowsealPlusSelected: tr("Полный список Flowseal плюс ваши IP и IP наборов (по умолчанию в Bridge).", "The full Flowseal list plus your IPs and set IPs (Bridge's default)."),
                   any: tr("Все IP-адреса на перехватываемых портах. Может сломать другие программы — используйте, только если понимаете зачем.", "Every IP address on the captured ports. May break other programs — use only if you know why."),
                 }[s.ipsetMode]
               }

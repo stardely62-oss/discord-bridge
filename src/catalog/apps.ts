@@ -5,7 +5,7 @@
 // Installing, updating, rolling back and removing go through Rust commands
 // that validate and save `installedPacks`; nothing here touches settings.
 
-import type { CatalogPack, CatalogView, InstalledPack, IpSetStatus, IpsetMode, Localized, PackCategory, PackState } from "../services/types";
+import type { CatalogPack, CatalogView, GameFilterMode, InstalledPack, IpSetStatus, IpsetMode, Localized, NeededPorts, PackCategory, PackPorts, PackState } from "../services/types";
 
 export const CATEGORY_RU: Record<PackCategory, string> = {
   messenger: "мессенджер",
@@ -145,3 +145,19 @@ export function manualIpState(includeCount: number, ip: IpSetStatus): PackIpStat
 export function ownEntries(manual: string[]): string[] {
   return manual.filter((l) => l.trim() && !l.trim().startsWith("#"));
 }
+
+/** Declared ports of a pack as a list (`ports.tcp`, `ports.udp`). */
+export function declaredPorts(p: PackPorts | null | undefined): NeededPorts[] {
+  const out: NeededPorts[] = [];
+  if (p?.tcp) out.push({ protocol: "tcp", ports: p.tcp });
+  if (p?.udp) out.push({ protocol: "udp", ports: p.udp });
+  return out;
+}
+
+/** `UDP 5055–5058, TCP 4530` */
+export function portsText(list: NeededPorts[]): string {
+  return list.map((n) => `${n.protocol.toUpperCase()} ${n.ports.replace(/-/g, "–").replace(/,/g, ", ")}`).join("; ");
+}
+
+export const GAME_FILTER_MODE_RU: Record<GameFilterMode, string> = { disabled: "выключен", all: "TCP и UDP", tcp: "TCP", udp: "UDP" };
+export const GAME_FILTER_MODE_EN: Record<GameFilterMode, string> = { disabled: "off", all: "TCP and UDP", tcp: "TCP", udp: "UDP" };

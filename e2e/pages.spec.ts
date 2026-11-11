@@ -55,6 +55,33 @@ test.describe("Apps", () => {
   });
 });
 
+test.describe("Ports of a game pack", () => {
+  test("an installed game pack warns that its ports are not handled, and one click turns the game filter on", async ({ app }) => {
+    await app.open("s=running&readme=1&ports=installed");
+    await app.go("Приложения");
+    await app.main.getByRole("tab", { name: /^Мои/ }).click();
+    const note = app.main.getByTestId("port-note");
+    await expect(note).toContainText("Порты UDP 5055–5058 сейчас не обрабатываются: нужен игровой фильтр");
+    await app.calls();
+    await note.getByRole("button", { name: "Включить игровой фильтр (UDP)" }).click();
+    const save = await app.sent("save_settings");
+    expect((save.args.settings as { gameFilter: { mode: string } }).gameFilter.mode).toBe("udp");
+    // Handled now: the installed list shows problems only.
+    await expect(app.main.getByTestId("port-note")).toHaveCount(0);
+    await app.main.getByText("R.E.P.O. / PEAK (Photon)").first().click();
+    await expect(app.page.getByRole("dialog").getByTestId("port-note")).toContainText("Работает ли сама игра, Bridge не проверяет");
+  });
+
+  test("a strategy without a rule for the ports points to another strategy", async ({ app }) => {
+    await app.open("s=running&readme=1&ports=norule");
+    await app.go("Приложения");
+    await app.main.getByRole("tab", { name: "Сообщество" }).click();
+    const note = app.main.getByTestId("port-note");
+    await expect(note).toContainText("не обрабатываются ни одним правилом стратегии");
+    await expect(note.getByRole("button", { name: "выберите другую стратегию" })).toBeVisible();
+  });
+});
+
 test.describe("Diagnostics", () => {
   test("problems are listed with their reasons; a re-check asks the backend", async ({ app }) => {
     await app.open();

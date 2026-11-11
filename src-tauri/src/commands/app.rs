@@ -12,6 +12,14 @@ pub struct HelperInfo {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct PackPortStatus {
+    pub id: String,
+    pub ports: Option<bridge_core::packs::PackPorts>,
+    pub coverage: bridge_core::services::PortCoverage,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Overview {
     pub app_version: String,
     pub settings: Settings,
@@ -33,6 +41,9 @@ pub struct Overview {
     pub pending_apply: bool,
     /// Honest state of the selected IPs (see `bridge_core::ipset::IpSetStatus`).
     pub ip_sets: bridge_core::ipset::IpSetStatus,
+    /// Whether the active strategy handles the own ports of catalog packs
+    /// (configuration only, never "works").
+    pub pack_ports: Vec<PackPortStatus>,
 }
 
 /// True if the running engine's snapshot hash differs from the hash of the
@@ -150,10 +161,28 @@ pub async fn get_overview(app: AppHandle, state: State<'_, AppState>) -> R<Overv
         )
     };
     let pending = pending_apply(&state, engine.as_ref());
+    let active_full = active_id
+        .as_ref()
+        .and_then(|id| state.strategies.lock().expect("lock").get(id).cloned());
+    let pack_ports = state
+        .catalog
+        .port_packs()
+        .into_iter()
+        .filter_map(|p| {
+            bridge_core::services::pack_port_coverage(
+                &p,
+                active_full.as_ref(),
+                &settings.game_filter,
+            )
+            .map(|coverage| PackPortStatus {
+                id: p.id.clone(),
+                ports: p.ports.clone(),
+                coverage,
+            })
+        })
+        .collect();
     let ip_sets = {
-        let strategy = active_id
-            .as_ref()
-            .and_then(|id| state.strategies.lock().expect("lock").get(id).cloned());
+        let strategy = active_full;
         let runs = engine.as_ref().is_some_and(|e| {
             e.state == EngineState::Running && e.strategy_id.is_some() && e.strategy_id == active_id
         });
@@ -169,6 +198,7 @@ pub async fn get_overview(app: AppHandle, state: State<'_, AppState>) -> R<Overv
     Ok(Overview {
         app_version: env!("CARGO_PKG_VERSION").into(),
         ip_sets,
+        pack_ports,
         discord: discord::status(settings.discord_path.as_deref()),
         voice: voice_state(&state, engine.as_ref(), active_id.as_deref()),
         pending_apply: pending,

@@ -12,6 +12,8 @@ const custom: Strategy = { ...structuredClone(strategies[3]), id: "my-alt3", nam
 custom.rules[0].args[2] = { opt: "--dpi-desync-repeats", value: "8" };
 const all = [...strategies, custom];
 const q0 = new URLSearchParams(location.search);
+// Preview only: ?ports=off|installed|norule shows the port check of a game pack.
+const portsDemo = q0.get("ports");
 const scenario = q0.get("s") ?? "running";
 // readme=1: the state used for the README screenshots — the current version,
 // a normal working setup, the real built-in catalog, no installed example
@@ -57,7 +59,7 @@ const settings = {
   activeStrategyId: "flowseal-general-alt2", lastWorkingStrategyId: "flowseal-general-alt2", bypassEnabled: true,
   gameFilter: { mode: "disabled", tcpRange: "1024-65535", udpRange: "1024-65535" }, ipsetMode: (new URLSearchParams(location.search).get("ip") ?? "none"),
   userLists: readme ? { general: [], exclude: [], ipsetExclude: [], ipsetInclude: [] } : { general: ["example.org", "steampowered.com"], exclude: ["bank.example"], ipsetExclude: ["192.168.0.0/16"], ipsetInclude: [] },
-  installedPacks: readme ? [] : [
+  installedPacks: readme ? (portsDemo === "installed" ? [{ id: "photon-multiplayer", version: "2", domains: ["photonengine.io", "ns.exitgames.com"], ips: ["216.120.180.0/23", "80.93.214.0/24", "87.120.167.0/24"] }] : []) : [
     { id: "steam", version: "2026-11-05", domains: ["steampowered.com", "steamcommunity.com", "steamstatic.com", "steamcontent.com", "steamserver.net", "steamgames.com", "steam-chat.com", "valvesoftware.com"] },
     { id: "twitch", version: "2026-10-01", domains: ["twitch.tv", "ttvnw.net", "jtvnw.net"] },
     { id: "telegram", version: "2026-11-05", domains: ["telegram.org", "t.me", "telegram.me", "telegra.ph", "telesco.pe", "cdn-telegram.org"], ips: ["91.108.56.0/22", "91.108.4.0/22", "91.108.8.0/22", "91.108.16.0/22", "91.108.12.0/22", "149.154.160.0/20", "91.105.192.0/23", "91.108.20.0/22", "185.76.151.0/24", "2001:b28:f23d::/48", "2001:b28:f23f::/48", "2001:67c:4e8::/48", "2001:b28:f23c::/48", "2a0a:f280::/32"] },
@@ -97,6 +99,17 @@ const overview = () => ({
   bundle: { version: "1.10.4", winwsVersion: "v72.9", source: "helper", bundles: [{ version: "1.10.4", winwsVersion: "v72.9", active: true, builtin: true, ok: true, problems: [] }] },
   activeStrategy: list().find((s) => s.id === "flowseal-general-alt2"), lastDiagnostics: diag, voice: "notChecked", autostartEnabled: true, autoRunning: false,
   settingsRecovered: false, pendingApply: !readme && q0.get("svc") !== "applied",
+  // Preview only: the real computation is bridge_core::services::port_coverage.
+  packPorts: portsDemo
+    ? [{
+        id: "photon-multiplayer", ports: { udp: "5055-5058" },
+        coverage: portsDemo === "norule"
+          ? { state: "noRule", missing: [{ protocol: "udp", ports: "5055-5058" }] }
+          : ["udp", "all"].includes(settings.gameFilter.mode)
+            ? { state: "covered", rules: [9] }
+            : { state: "needsGameFilter", mode: "udp", missing: [{ protocol: "udp", ports: "5055-5058" }] },
+      }]
+    : [],
   ipSets: { mode: settings.ipsetMode, modeUsesSelected: ["selected", "flowsealPlusSelected"].includes(settings.ipsetMode), prepared: ["selected", "flowsealPlusSelected"].includes(settings.ipsetMode) ? 14 : 0, strategyId: "flowseal-general-alt2", strategy: { ipsetRules: 4, ipsetRulesWithUserExclude: 4 }, engineRunsStrategy: running, engineUpToDate: false, applied: false, packs: readme ? [] : [{ id: "telegram", ips: 14, effective: 14 }] }, strategyLoadErrors: [], catalogErrors: [],
 });
 
@@ -104,7 +117,20 @@ const specsMod = await import("./specs.json");
 // Catalog of address packs: built-in snapshot + query flags.
 const q = new URLSearchParams(location.search);
 const nextCat = q.get("cat") === "next";
-const catPacks = ((nextCat ? services : packCatalog) as { packs: Record<string, unknown>[] }).packs;
+// Preview only: ?ports=… adds a game pack with ports (data of the community
+// pack «R.E.P.O. / PEAK (Photon)», shortened) to show the port check.
+const photonDemo = {
+  schema: 1, id: "photon-multiplayer", version: 2, updated: "2026-11-11", category: "game", source: "community",
+  name: { ru: "R.E.P.O. / PEAK (Photon)", en: "R.E.P.O. / PEAK (Photon)" },
+  description: { ru: "Сетевая игра через Photon Cloud (пример для предпросмотра).", en: "Online play through Photon Cloud (preview example)." },
+  domains: ["photonengine.io", "ns.exitgames.com"], ips: ["216.120.180.0/23", "80.93.214.0/24", "87.120.167.0/24"],
+  provenance: [{ kind: "ips", url: "https://doc.photonengine.com/realtime/current/connection-and-authentication/tcp-and-udp-port-numbers" }],
+  partialCoverage: false, requires: { selectedIps: true, gameFilter: true }, ports: { udp: "5055-5058" },
+};
+const catPacks = [
+  ...((nextCat ? services : packCatalog) as { packs: Record<string, unknown>[] }).packs,
+  ...(portsDemo ? [photonDemo] : []),
+];
 const catIcons = Object.fromEntries(((nextCat ? services : packCatalog) as { icons: { name: string; data: string }[] }).icons.map((i) => [i.name, `data:image/png;base64,${i.data}`]));
 // Original Flowseal files: test fixtures (committed) + the fetched resources (backup IPSet).
 const listFiles: Record<string, string> = Object.fromEntries(

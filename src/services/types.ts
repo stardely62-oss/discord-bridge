@@ -206,6 +206,8 @@ export interface CatalogPack {
   notes?: Localized | null;
   partialCoverage: boolean;
   requires: { selectedIps: boolean; gameFilter: boolean };
+  /** Ports of the service's own traffic (descriptive; never passed to winws). */
+  ports?: PackPorts | null;
   flowsealList?: string | null;
   minAppVersion?: string | null;
 }
@@ -235,6 +237,28 @@ export interface PackDiff {
   removedDomains: string[];
   addedIps: string[];
   removedIps: string[];
+}
+
+export interface PackPorts {
+  tcp?: string | null;
+  udp?: string | null;
+}
+
+export interface NeededPorts {
+  protocol: "tcp" | "udp";
+  ports: string;
+}
+
+/** Whether the active strategy handles a pack's own ports for IP addresses (configuration only). */
+export type PortCoverage =
+  | { state: "covered"; rules: number[] }
+  | { state: "needsGameFilter"; mode: GameFilterMode; missing: NeededPorts[] }
+  | { state: "noRule"; missing: NeededPorts[] };
+
+export interface PackPortStatus {
+  id: string;
+  ports?: PackPorts | null;
+  coverage: PortCoverage;
 }
 
 export interface PackView {
@@ -334,6 +358,8 @@ export interface Overview {
   catalogErrors: string[];
   pendingApply: boolean;
   ipSets: IpSetStatus;
+  /** Port status of catalog packs with ports or a game-filter requirement. */
+  packPorts?: PackPortStatus[];
 }
 
 export interface IpSetStatus {

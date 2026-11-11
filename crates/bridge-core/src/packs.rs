@@ -100,6 +100,74 @@ pub struct Requirements {
     pub game_filter: bool,
 }
 
+/// Ports the service's own traffic uses (`"5055-5058"`, `"443,4530"`), in the
+/// syntax of `--filter-tcp` / `--filter-udp`. Descriptive data: Bridge only
+/// checks whether the active strategy handles these ports; nothing from here
+/// ever reaches winws. A top-level field of the pack, so versions that do not
+/// know it ignore it (`requires` is strict and could not carry it).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct PackPorts {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tcp: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udp: Option<String>,
+}
+
+/// At most this many ports/ranges per protocol in a pack.
+pub const MAX_PORT_ITEMS: usize = 32;
+
+/// One declared list of [`PackPorts`] with its concrete ranges.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortNeed<'a> {
+    /// `tcp` or `udp`.
+    pub protocol: &'static str,
+    pub text: &'a str,
+    pub ranges: Vec<(u16, u16)>,
+}
+
+impl PackPorts {
+    /// Each declared list with its ranges (validated packs only).
+    pub fn needs(&self) -> Vec<PortNeed<'_>> {
+        [("tcp", &self.tcp), ("udp", &self.udp)]
+            .into_iter()
+            .filter_map(|(protocol, v)| {
+                let text = v.as_deref()?;
+                let ranges = crate::ports::PortSpec::parse(text).ok()?.ranges()?;
+                Some(PortNeed {
+                    protocol,
+                    text,
+                    ranges,
+                })
+            })
+            .collect()
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        if self.tcp.is_none() && self.udp.is_none() {
+            return Err("ports: не указан ни tcp, ни udp".into());
+        }
+        for (proto, v) in [("tcp", &self.tcp), ("udp", &self.udp)] {
+            let Some(v) = v else { continue };
+            let spec =
+                crate::ports::PortSpec::parse(v).map_err(|e| format!("ports.{proto}: {e}"))?;
+            let ranges = spec
+                .ranges()
+                .ok_or_else(|| format!("ports.{proto}: переменные игрового фильтра недопустимы"))?;
+            if ranges.len() > MAX_PORT_ITEMS {
+                return Err(format!("ports.{proto}: больше {MAX_PORT_ITEMS} элементов"));
+            }
+            if ranges.iter().any(|&(a, _)| a == 0) {
+                return Err(format!("ports.{proto}: порт 0 недопустим"));
+            }
+            if v != v.trim() || v.contains(' ') {
+                return Err(format!("ports.{proto}: пробелы недопустимы"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Unknown fields are ignored (a newer catalog may add descriptive data;
 /// the catalog's own CI rejects typos). A pack of a newer `schema` is not
 /// used at all: see [`CatalogData::usable_packs`].
@@ -134,6 +202,9 @@ pub struct Pack {
     pub partial_coverage: bool,
     #[serde(default)]
     pub requires: Requirements,
+    /// Ports of the service's own traffic (see [`PackPorts`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ports: Option<PackPorts>,
     /// Already covered by this Flowseal list: shown as "part of Flowseal",
     /// never as "installed" and never as "working".
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -326,6 +397,9 @@ impl Pack {
             if !version_ok(v) {
                 return Err(bad(id, "minAppVersion не является версией SemVer"));
             }
+        }
+        if let Some(p) = &self.ports {
+            p.validate().map_err(|e| bad(id, e))?;
         }
         if self.domains.is_empty() && self.ips.is_empty() {
             return Err(bad(id, "нет ни доменов, ни IP"));
@@ -873,7 +947,7 @@ mod tests;
 
 #[cfg(test)]
 pub(crate) mod tests_support {
-    pub(crate) use super::tests::{key, publish};
+    pub(crate) use super::tests::{key, pack, publish};
     use super::*;
 
     /// A small valid catalog with the given serial.

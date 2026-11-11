@@ -397,6 +397,160 @@ pub fn ipset_rules(facts: &StrategyFacts) -> Vec<usize> {
         .collect()
 }
 
+// ---------------------------------------------------------------- ports
+
+/// Ports of one protocol that a pack needs (`Pack.ports`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NeededPorts {
+    /// `tcp` or `udp`.
+    pub protocol: String,
+    pub ports: String,
+}
+
+/// Whether the active strategy processes a pack's own ports for IP addresses.
+/// This is about configuration only: it never says that the service works.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "state")]
+pub enum PortCoverage {
+    /// Every needed port is captured and handled by these enabled rules that
+    /// apply to addresses of the IP set (whether the pack's IPs are in that
+    /// set is the separate IP-mode status).
+    Covered { rules: Vec<usize> },
+    /// Not handled now; handled once the game filter is set to `mode` (which
+    /// keeps the protocols that are on already).
+    NeedsGameFilter {
+        mode: crate::ports::GameFilterMode,
+        missing: Vec<NeededPorts>,
+    },
+    /// Not handled by any rule of the strategy, even with the game filter
+    /// (its ranges exclude these ports, or the strategy has no such rule).
+    NoRule { missing: Vec<NeededPorts> },
+}
+
+/// A rule that would apply to the pack's IP traffic on its ports: it uses
+/// the shared IP set, or has no positive address filter at all, and no L7
+/// filter that game traffic (`unknown`) would fail.
+fn applies_to_ips(r: &RuleInfo) -> bool {
+    let l7_ok = r.l7.is_empty() || r.l7.iter().any(|p| p == "unknown");
+    let ipset = r.ipsets.iter().any(|i| i == IPSET_ALL);
+    let unrestricted =
+        r.hostlists.is_empty() && r.hostlist_domains.is_empty() && r.ipsets.is_empty();
+    r.enabled && l7_ok && (ipset || unrestricted)
+}
+
+fn ranges_of(spec: &Option<String>) -> Vec<(u16, u16)> {
+    spec.as_deref()
+        .and_then(|s| PortSpec::parse(s).ok())
+        .and_then(|p| p.ranges())
+        .unwrap_or_default()
+}
+
+/// Rules handling every port of `need`, and the needs nothing handles.
+fn evaluate(
+    s: &Strategy,
+    gf: &GameFilterPorts,
+    needs: &[crate::packs::PortNeed],
+) -> (Vec<usize>, Vec<NeededPorts>) {
+    let facts = strategy_facts(s, gf);
+    let mut rules = BTreeSet::new();
+    let mut missing = Vec::new();
+    for n in needs {
+        let tcp = n.protocol == "tcp";
+        let wf = if tcp { &facts.wf_tcp } else { &facts.wf_udp };
+        let captured = crate::ports::covers_all(&ranges_of(wf), &n.ranges);
+        let found: Vec<usize> = facts
+            .rules
+            .iter()
+            .filter(|r| {
+                let filter = if tcp { &r.tcp } else { &r.udp };
+                applies_to_ips(r) && crate::ports::covers_all(&ranges_of(filter), &n.ranges)
+            })
+            .map(|r| r.index)
+            .collect();
+        if captured && !found.is_empty() {
+            rules.extend(found);
+        } else {
+            missing.push(NeededPorts {
+                protocol: n.protocol.to_string(),
+                ports: n.text.to_string(),
+            });
+        }
+    }
+    (rules.into_iter().collect(), missing)
+}
+
+/// Whether `s`, with the user's game filter `gf`, handles the ports of a
+/// pack. When it does not, the game filter mode that would fix it (if any).
+pub fn port_coverage(
+    s: &Strategy,
+    gf: &crate::ports::GameFilter,
+    ports: &crate::packs::PackPorts,
+) -> PortCoverage {
+    use crate::ports::GameFilterMode as M;
+    let needs = ports.needs();
+    let (rules, missing) = evaluate(s, &gf.ports(), &needs);
+    if missing.is_empty() {
+        return PortCoverage::Covered { rules };
+    }
+    let on = |m: M| match m {
+        M::Disabled => (false, false),
+        M::All => (true, true),
+        M::Tcp => (true, false),
+        M::Udp => (false, true),
+    };
+    let (mut tcp, mut udp) = on(gf.mode);
+    for n in &missing {
+        if n.protocol == "tcp" {
+            tcp = true;
+        } else {
+            udp = true;
+        }
+    }
+    let target = match (tcp, udp) {
+        (true, true) => M::All,
+        (true, false) => M::Tcp,
+        (false, true) => M::Udp,
+        (false, false) => M::Disabled,
+    };
+    if target != gf.mode {
+        let with = crate::ports::GameFilter {
+            mode: target,
+            ..gf.clone()
+        };
+        let (_, still) = evaluate(s, &with.ports(), &needs);
+        if still.is_empty() {
+            return PortCoverage::NeedsGameFilter {
+                mode: target,
+                missing,
+            };
+        }
+        return PortCoverage::NoRule { missing: still };
+    }
+    PortCoverage::NoRule { missing }
+}
+
+/// Port status of one catalog pack, or `None` when there is nothing to say:
+/// no ports and no game-filter requirement, or no active strategy. A pack of
+/// an older catalog without `ports` but with `requires.gameFilter` still
+/// gets the game-filter hint when the filter is off.
+pub fn pack_port_coverage(
+    pack: &crate::packs::Pack,
+    s: Option<&Strategy>,
+    gf: &crate::ports::GameFilter,
+) -> Option<PortCoverage> {
+    if let Some(p) = &pack.ports {
+        return s.map(|s| port_coverage(s, gf, p));
+    }
+    if pack.requires.game_filter && gf.mode == crate::ports::GameFilterMode::Disabled {
+        return Some(PortCoverage::NeedsGameFilter {
+            mode: crate::ports::GameFilterMode::All,
+            missing: Vec::new(),
+        });
+    }
+    None
+}
+
 /// Lists a pack's domains end up in when installed.
 pub fn installed_pack_lists() -> &'static [&'static str] {
     &[USER_GENERAL]

@@ -4,7 +4,7 @@ import { installedTitle, loc, ownEntries } from "../../catalog/apps";
 import { Button, Card } from "../../components/ui";
 import type { CatalogView } from "../../services/types";
 import { useApp, useCount, useTr } from "../../stores/app";
-import { AppIcon, PackDetails, StateChip, UpdateDialog, counts, usePackActions, versionText } from "./packs";
+import { AppIcon, PackDetails, PortNote, StateChip, UpdateDialog, counts, usePackActions, versionText } from "./packs";
 
 export function MyApps({ view, manual, toManual }: { view: CatalogView; manual: string[]; toManual: () => void }) {
   const tr = useTr();
@@ -22,19 +22,26 @@ export function MyApps({ view, manual, toManual }: { view: CatalogView; manual: 
         {mine.map((v) => {
           const name = loc(v.pack.name, lang);
           return (
-            <div key={v.pack.id} className="flex items-center gap-3 px-4 py-3">
-              <AppIcon name={name} icon={v.pack.icon} size="h-8 w-8 text-sm" />
-              <button className="min-w-0 flex-1 text-left" onClick={() => setDetails(v.pack.id)}>
-                <div className="text-[13px] font-medium hover:underline">{name}</div>
-                <div className="truncate text-xs text-ink-faint">
-                  {v.state === "flowseal" ? tr(`входит в Flowseal — ${v.pack.flowsealList}`, `part of Flowseal — ${v.pack.flowsealList}`) : `${tr("версия", "version")} ${versionText(v.installed?.version, tr)} · ${counts(count, v.installed?.domains.length ?? 0, v.installed?.ips?.length ?? 0)}`}
+            <div key={v.pack.id} className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <AppIcon name={name} icon={v.pack.icon} size="h-8 w-8 text-sm" />
+                <button className="min-w-0 flex-1 text-left" onClick={() => setDetails(v.pack.id)}>
+                  <div className="text-[13px] font-medium hover:underline">{name}</div>
+                  <div className="truncate text-xs text-ink-faint">
+                    {v.state === "flowseal" ? tr(`входит в Flowseal — ${v.pack.flowsealList}`, `part of Flowseal — ${v.pack.flowsealList}`) : `${tr("версия", "version")} ${versionText(v.installed?.version, tr)} · ${counts(count, v.installed?.domains.length ?? 0, v.installed?.ips?.length ?? 0)}`}
+                  </div>
+                </button>
+                <StateChip state={v.state} />
+                {(v.state === "updateAvailable" || v.state === "differs") && (
+                  <Button size="sm" variant="primary" onClick={() => setUpdating(v.pack.id)}>
+                    {tr("Обновить…", "Update…")}
+                  </Button>
+                )}
+              </div>
+              {v.installed && (
+                <div className="pl-11">
+                  <PortNote pack={v.pack} installed onlyProblems />
                 </div>
-              </button>
-              <StateChip state={v.state} />
-              {(v.state === "updateAvailable" || v.state === "differs") && (
-                <Button size="sm" variant="primary" onClick={() => setUpdating(v.pack.id)}>
-                  {tr("Обновить…", "Update…")}
-                </Button>
               )}
             </div>
           );

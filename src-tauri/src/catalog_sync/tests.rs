@@ -111,6 +111,7 @@ fn catalog(serial: u64, steam_version: u32, steam_domains: &[&str]) -> CatalogDa
             notes: None,
             partial_coverage: false,
             requires: Requirements::default(),
+            ports: None,
             flowseal_list: None,
             min_app_version: None,
         }],
