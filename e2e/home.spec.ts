@@ -9,6 +9,36 @@ test("«Применить» restarts the bypass with the active strategy", asyn
   expect(call.args).toEqual({ id: "flowseal-general-alt2", ignoreConflicts: false });
 });
 
+test.describe("TCP timestamps reminder", () => {
+  test("a start with a fooling=ts strategy asks to enable them, and changes nothing without consent", async ({ app, page }) => {
+    await app.open();
+    await app.main.getByRole("button", { name: "Применить" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("TCP timestamps в Windows выключены");
+    await app.calls();
+    await dialog.getByRole("button", { name: "Не включать" }).click();
+    expect((await app.calls()).map((c) => c.cmd)).not.toContain("set_tcp_timestamps");
+    // A «no» is remembered: the next start does not ask again.
+    await app.main.getByRole("button", { name: "Применить" }).click();
+    await app.sent("bypass_enable");
+    await expect(dialog).toHaveCount(0);
+  });
+
+  test("«Включить» turns them on with the user's confirmation", async ({ app, page }) => {
+    await app.open();
+    await app.main.getByRole("button", { name: "Применить" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Включить" }).click();
+    expect((await app.sent("set_tcp_timestamps")).args).toEqual({ enable: true, userConfirmed: true });
+  });
+
+  test("nothing is asked when they are already on", async ({ app, page }) => {
+    await app.open("s=running&ts=on");
+    await app.main.getByRole("button", { name: "Применить" }).click();
+    await app.sent("tcp_timestamps_needed");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+});
+
 test("«Запустить Discord» asks the backend to launch by the saved preference", async ({ app }) => {
   await app.open();
   await app.calls();

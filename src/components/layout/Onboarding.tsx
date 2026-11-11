@@ -2,7 +2,7 @@ import { CheckCircle2, Circle, Loader2, Play, Sparkles, XCircle } from "lucide-r
 import { useState } from "react";
 import { api, errorText } from "../../services/api";
 import { useApp, useTr } from "../../stores/app";
-import { useLaunch } from "../../hooks/useActivate";
+import { declineTs, useLaunch } from "../../hooks/useActivate";
 import { Button, Checkbox, Modal } from "../ui";
 
 type StepState = "todo" | "run" | "ok" | "fail";
@@ -53,6 +53,8 @@ export function Onboarding() {
       });
       mark("settings", "ok");
 
+      // Unticked here is already an answer: no reminder after a later start.
+      if (!timestamps) declineTs();
       if (timestamps) {
         mark("ts", "run");
         try {

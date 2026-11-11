@@ -89,6 +89,8 @@ export const api = {
   diagnosticsHistory: () => invoke<DiagnosticsReport[]>("diagnostics_history"),
   setTcpTimestamps: (enable: boolean, userConfirmed: boolean) => invoke<TcpInfo>("set_tcp_timestamps", { enable, userConfirmed }),
   restoreTcpTimestamps: () => invoke<TcpInfo>("restore_tcp_timestamps"),
+  /** Read-only: the active strategy needs TCP timestamps and they are off. */
+  tcpTimestampsNeeded: () => invoke<boolean>("tcp_timestamps_needed"),
   logs: (lines?: number) => invoke<string[]>("get_logs", { lines: lines ?? null }),
   clearLogs: () => invoke<void>("clear_logs"),
   exportReport: (path: string) => invoke<void>("export_report", { path }),
