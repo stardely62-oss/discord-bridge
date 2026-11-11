@@ -91,13 +91,17 @@ workflow alpha.9 эта проверка отклонила бы, и разби�
 
 | Action | Версия | SHA |
 |---|---|---|
-| actions/checkout | v4.4.0 | `11d5960a326750d5838078e36cf38b85af677262` |
-| actions/setup-node | v4.4.0 | `49933ea5288caeca8642d1e84afbd3f7d6820020` |
-| actions/upload-artifact | v4.6.2 | `ea165f8d65b6e75b540449e92b4886f43607fa02` |
-| actions/download-artifact | v4.3.0 | `d3f86a106a0bac45b974a628896c90dbdf5c8093` |
+| actions/checkout | v7.0.1 | `3d3c42e5aac5ba805825da76410c181273ba90b1` |
+| actions/setup-node | v7.1.0 | `949feb2413d6458794dcd2491c4babbbce0c15c1` |
+| actions/setup-python | v6.2.0 | `a309ff8b426b58ec0e2a45f0f869d46889d02405` |
+| actions/upload-artifact | v7.0.2 | `cf430e030ddbb5b0abf93d22962f4752f3646cd9` |
+| actions/download-artifact | v8.0.2 | `9000827ccba6bdab643e8b6fd33ac0654aef8333` |
 | Swatinem/rust-cache | v2.9.3 | `d1527c8f67ef9af357290475d4af4b0fab8f12e0` |
-| pnpm/action-setup | v4.3.0 (на неё указывал `v4`) | `b906affcce14559ad1aafd4ab0e942779e9f58b1` |
+| pnpm/action-setup | v4.4.0 | `fc06bc1257f339d1d5d8b3a19a8cae5388b55320` |
 | dtolnay/rust-toolchain | ветка `stable` от 2026-10-16 | `b725eda525362e7cf34af9a7243cac1e3f01a7ec` |
+
+Все Actions на JavaScript работают на Node 24 (поле `runs.using` в их `action.yml`):
+Node 20 GitHub убирает с раннеров. `dtolnay/rust-toolchain` — составной action, без Node.
 
 `tauri-apps/tauri-action` больше не используется: релиз собирается командой
 `pnpm tauri build`, публикует его отдельный job через `gh`. Gitleaks 8.30.1
@@ -114,6 +118,9 @@ workflow alpha.9 эта проверка отклонила бы, и разби�
    # если type=tag:
    gh api repos/<owner>/<action>/git/tags/<sha> -q .object.sha
    ```
+   Без `gh` то же даёт `git ls-remote --tags https://github.com/<owner>/<action>`:
+   для аннотированного тега берите строку `<tag>^{}`.
+   Проверьте рантайм: `runs.using` в `action.yml` этого коммита.
 3. Проверьте, что этот коммит есть в репозитории Action и отвечает релизу:
    `gh api repos/<owner>/<action>/commits/<sha>`.
 4. Замените SHA во **всех** workflow и обновите комментарий `# vX.Y.Z` и

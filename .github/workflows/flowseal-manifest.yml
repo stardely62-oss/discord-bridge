@@ -57,7 +57,7 @@ jobs:
           env=$(gh api "repos/${GITHUB_REPOSITORY}/environments/flowseal-sign") || { echo "::error::environment flowseal-sign does not exist — see docs/maintainers/release-security.md"; exit 1; }
           echo "$env" | jq -e '[.protection_rules[]?|select(.type=="required_reviewers")]|length>0' >/dev/null || { echo "::error::flowseal-sign has no required reviewers"; exit 1; }
           echo "$env" | jq -e '.deployment_branch_policy != null' >/dev/null || { echo "::error::flowseal-sign is not limited to selected branches"; exit 1; }
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
@@ -82,7 +82,7 @@ jobs:
           jq -e --arg v "$VERSION" --arg s "$SOURCE_SHA256" '.flowsealVersion==$v and .sourceSha256==$s' payload/payload.json >/dev/null
           echo "sha256=$sha" >> "$GITHUB_OUTPUT"
           echo "payload SHA-256: $sha"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: flowseal-payload
           path: payload/payload.json
@@ -98,14 +98,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: |
             scripts/sign
             keys
           sparse-checkout-cone-mode: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: flowseal-payload
           path: payload
@@ -122,7 +122,7 @@ jobs:
           --expect-version "$VERSION"
           --expect-source-sha256 "$SOURCE_SHA256"
           --key-env FLOWSEAL_MANIFEST_SIGNING_KEY
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: flowseal-signed
           path: flowseal-*.signed.json
@@ -138,11 +138,11 @@ jobs:
     outputs:
       signed_sha256: ${{ steps.check.outputs.sha256 }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable branch, 2026-10-16
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: flowseal-signed
           path: signed
@@ -166,7 +166,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: flowseal-signed
           path: signed
