@@ -117,20 +117,7 @@ const specsMod = await import("./specs.json");
 // Catalog of address packs: built-in snapshot + query flags.
 const q = new URLSearchParams(location.search);
 const nextCat = q.get("cat") === "next";
-// Preview only: ?ports=… adds a game pack with ports (data of the community
-// pack «R.E.P.O. / PEAK (Photon)», shortened) to show the port check.
-const photonDemo = {
-  schema: 1, id: "photon-multiplayer", version: 2, updated: "2026-11-11", category: "game", source: "community",
-  name: { ru: "R.E.P.O. / PEAK (Photon)", en: "R.E.P.O. / PEAK (Photon)" },
-  description: { ru: "Сетевая игра через Photon Cloud (пример для предпросмотра).", en: "Online play through Photon Cloud (preview example)." },
-  domains: ["photonengine.io", "ns.exitgames.com"], ips: ["216.120.180.0/23", "80.93.214.0/24", "87.120.167.0/24"],
-  provenance: [{ kind: "ips", url: "https://doc.photonengine.com/realtime/current/connection-and-authentication/tcp-and-udp-port-numbers" }],
-  partialCoverage: false, requires: { selectedIps: true, gameFilter: true }, ports: { udp: "5055-5058" },
-};
-const catPacks = [
-  ...((nextCat ? services : packCatalog) as { packs: Record<string, unknown>[] }).packs,
-  ...(portsDemo ? [photonDemo] : []),
-];
+const catPacks = ((nextCat ? services : packCatalog) as { packs: Record<string, unknown>[] }).packs;
 const catIcons = Object.fromEntries(((nextCat ? services : packCatalog) as { icons: { name: string; data: string }[] }).icons.map((i) => [i.name, `data:image/png;base64,${i.data}`]));
 // Original Flowseal files: test fixtures (committed) + the fetched resources (backup IPSet).
 const listFiles: Record<string, string> = Object.fromEntries(
@@ -221,6 +208,10 @@ const handlers: Record<string, (a: Record<string, unknown>) => unknown> = {
   get_option_specs: () => specsMod.default,
   get_resources: () => ({ fakes: ["ACTIVE_DISCORD_UDP.bin", "stun.bin", "tls_clienthello_www_google_com.bin", "quic_initial_www_google_com.bin"], lists: ["list-general.txt", "list-google.txt", "list-exclude.txt", "ipset-all.txt"] }),
   run_diagnostics: () => diag,
+  // Preview only: the active ALT2 uses fooling=ts; off unless ?readme=1 or ?ts=on.
+  bypass_enable: (a) => ({ ok: true, requestedId: a.id, outcome: "running", conflicts: [], issues: [], httpsOk: true, httpsItems: [] }),
+  tcp_timestamps_needed: () => !readme && q0.get("ts") !== "on",
+  set_tcp_timestamps: () => ({ current: true, changedByUs: true, message: "TCP timestamps включены" }),
   diagnostics_history: () => [diag],
   get_logs: () => [`2026-11-05T10:01:12Z INFO Bridge ${appVersion} started`, "2026-11-05T10:01:14Z INFO activating strategy flowseal-general-alt2", "2026-11-05T10:01:16Z INFO strategy running, https_ok=true"],
   engine_log: () => ["winws v72.9", "windivert initialized. capture is started."],

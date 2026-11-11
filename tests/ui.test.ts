@@ -68,10 +68,14 @@ const view = (id: string, state: PackView["state"]): PackView => {
 };
 
 describe("catalog display", () => {
-  it("the built-in snapshot has the four Flowseal service cards with real icons", () => {
-    expect(builtinPacks.map((p) => p.id).sort()).toEqual(["cloudflare", "discord", "google", "youtube"]);
-    expect(builtinPacks.every((p) => p.icon?.endsWith(".png"))).toBe(true);
-    expect(builtinPacks.every((p) => p.flowsealList && p.ips.length === 0)).toBe(true);
+  it("the built-in snapshot has the four Flowseal service cards with real icons, and the Photon pack", () => {
+    expect(builtinPacks.map((p) => p.id).sort()).toEqual(["cloudflare", "discord", "google", "photon-multiplayer", "youtube"]);
+    const flowseal = builtinPacks.filter((p) => p.id !== "photon-multiplayer");
+    expect(flowseal.every((p) => p.icon?.endsWith(".png"))).toBe(true);
+    expect(flowseal.every((p) => p.flowsealList && p.ips.length === 0)).toBe(true);
+    const photon = builtinPacks.find((p) => p.id === "photon-multiplayer")!;
+    expect(photon.ports?.udp).toBe("5055-5058");
+    expect(photon.source).toBe("community");
   });
 
   it("the test catalog keeps the ten packs the display rules are tested on", () => {

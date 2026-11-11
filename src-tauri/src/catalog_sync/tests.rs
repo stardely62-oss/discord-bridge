@@ -476,8 +476,8 @@ async fn failed_settings_write_leaves_installed_packs_unchanged() {
 }
 
 /// No network and no cache (first start offline): the built-in snapshot —
-/// the published catalog 1794006227 — is used. Its four Flowseal cards are
-/// information only. Packs the user installed earlier (e.g. from the
+/// the published catalog 1794377938 — is used. Its four Flowseal cards are
+/// information only; the Photon pack can be installed. Packs the user installed earlier (e.g. from the
 /// alpha.10 snapshot) are kept as orphans and stay in the engine lists.
 #[tokio::test]
 async fn offline_uses_the_builtin_catalog_and_keeps_installed_packs() {
@@ -515,11 +515,27 @@ async fn offline_uses_the_builtin_catalog_and_keeps_installed_packs() {
     assert_eq!(inst, earlier, "installed packs are not touched");
     let v = rt.view(&inst);
     assert_eq!(v.origin, CatalogOrigin::Builtin);
-    assert_eq!(v.data_serial, 1_794_006_227);
+    assert_eq!(v.data_serial, 1_794_377_938);
     let mut ids: Vec<&str> = v.packs.iter().map(|p| p.pack.id.as_str()).collect();
     ids.sort();
-    assert_eq!(ids, ["cloudflare", "discord", "google", "youtube"]);
-    assert!(v.packs.iter().all(|p| p.state == PackState::Flowseal));
+    assert_eq!(
+        ids,
+        [
+            "cloudflare",
+            "discord",
+            "google",
+            "photon-multiplayer",
+            "youtube"
+        ]
+    );
+    for p in &v.packs {
+        let want = if p.pack.id == "photon-multiplayer" {
+            PackState::Available
+        } else {
+            PackState::Flowseal
+        };
+        assert_eq!(p.state, want, "{}", p.pack.id);
+    }
     let orphans: Vec<&str> = v.orphans.iter().map(|o| o.id.as_str()).collect();
     assert_eq!(orphans, ["telegram", "steam"]);
     let lists = bridge_core::lists::effective_lists(&Default::default(), &inst);

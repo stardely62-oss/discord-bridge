@@ -1,6 +1,7 @@
 //! The catalog repository's Node scripts (build.mjs + sign.mjs) produce
 //! files that bridge_core::packs verifies; the built-in snapshot shipped with
-//! the app is the published catalog 1794006227 (four Flowseal service cards).
+//! the app is the published catalog 1794377938 (four Flowseal service cards and the
+//! community pack for Photon games).
 
 use bridge_core::packs::{verify_catalog, CatalogData, PackState, CATALOG_TRUSTED_KEYS};
 use std::fs;
@@ -43,18 +44,42 @@ fn the_test_key_is_not_trusted_by_the_app() {
     assert!(r.is_err());
 }
 
-/// The built-in snapshot is the published catalog 1794006227: the four
-/// Flowseal service cards, information only (nothing to install, no IPs).
+/// The built-in snapshot is the published catalog 1794377938: the four
+/// Flowseal service cards, information only (nothing to install, no IPs),
+/// and the community pack for Photon games with its own ports.
 #[test]
-fn builtin_catalog_has_the_four_flowseal_cards() {
+fn builtin_catalog_has_the_four_flowseal_cards_and_the_photon_pack() {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../resources/catalog/builtin-catalog.json");
     let d: CatalogData = serde_json::from_slice(&fs::read(path).unwrap()).unwrap();
     d.validate(APP).unwrap();
     let mut ids: Vec<&str> = d.packs.iter().map(|p| p.id.as_str()).collect();
     ids.sort();
-    assert_eq!(ids, ["cloudflare", "discord", "google", "youtube"]);
-    for p in &d.packs {
+    assert_eq!(
+        ids,
+        [
+            "cloudflare",
+            "discord",
+            "google",
+            "photon-multiplayer",
+            "youtube"
+        ]
+    );
+    let photon = d
+        .packs
+        .iter()
+        .find(|p| p.id == "photon-multiplayer")
+        .unwrap();
+    assert_eq!(
+        bridge_core::packs::pack_state(photon, &[]),
+        PackState::Available
+    );
+    assert_eq!(
+        photon.ports.as_ref().and_then(|p| p.udp.as_deref()),
+        Some("5055-5058")
+    );
+    assert!(photon.requires.game_filter && photon.requires.selected_ips);
+    for p in d.packs.iter().filter(|p| p.id != "photon-multiplayer") {
         assert_eq!(
             bridge_core::packs::pack_state(p, &[]),
             PackState::Flowseal,
@@ -107,8 +132,8 @@ fn builtin_snapshot_is_the_published_catalog_signed_with_the_pinned_key() {
     let data = fs::read(dir.join("builtin-catalog.json")).unwrap();
     let v = verify_catalog(&signed, &data, CATALOG_TRUSTED_KEYS, APP).unwrap();
     assert_eq!(v.data.serial, v.manifest.serial);
-    assert_eq!(v.manifest.serial, 1_794_006_227);
-    assert_eq!(v.data.packs.len(), 4);
+    assert_eq!(v.manifest.serial, 1_794_377_938);
+    assert_eq!(v.data.packs.len(), 5);
     assert_eq!(v.data.icons.len(), 4);
     // Every pack yields a stable confirmation hash (same rule as the app).
     for p in &v.data.packs {
